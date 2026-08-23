@@ -80,8 +80,11 @@ brew install --cask starcat
 
 ## 当前状态
 
-项目当前处于落地方案与视觉设计阶段。首版控制台视觉方向确认后，再加入 React 应用源码和
-可运行命令。
+第一阶段本地控制台已经可以运行，现已包含 React/shadcn 工作区、明确的测试/生产环境路由、
+白名单化服务统计与运维动作、Agent 辅助精选导入、Awesome 来源管理、连接与密钥配置，以及
+Fly 应用设置。
+
+![Starcat Admin Console 总览](./docs/design/overview.png)
 
 ## 安全边界
 
@@ -93,8 +96,35 @@ brew install --cask starcat
 
 ## 本地开发
 
-首个可执行脚手架完成时，将同步补充经过验证的安装、构建、测试和打包命令。第一阶段不包含
-任何远程部署目标。
+需要 Node.js 22+ 与 pnpm 11：
+
+```bash
+pnpm install
+pnpm dev
+```
+
+浏览器打开 `http://127.0.0.1:5173`。Vite 会把 `/api` 转发到
+`http://127.0.0.1:8787` 的本地 BFF。配置默认写入
+`~/.config/starcat-admin-console`；密钥原文只保存在 BFF 的 secrets 文件中。
+
+构建并运行本地生产包：
+
+```bash
+pnpm build
+pnpm start
+```
+
+然后打开 `http://127.0.0.1:8787`。
+
+验证命令：
+
+```bash
+pnpm check
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
+
+仅在需要覆盖运行路径时复制 `.env.example`。第一阶段仍不包含远程部署目标。
 
 ## 参与贡献
 

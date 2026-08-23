@@ -1,0 +1,10 @@
+dist
+dist-server
+node_modules
+playwright-report
+test-results
+AGENTS.md
+README.md
+README-ZH.md
+docs
+pnpm-lock.yaml

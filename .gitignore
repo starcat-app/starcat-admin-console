@@ -4,5 +4,10 @@
 !.env.example
 build/
 dist/
+dist-server/
+node_modules/
+coverage/
+playwright-report/
+test-results/
 tmp/
 *.log

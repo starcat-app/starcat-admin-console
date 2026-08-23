@@ -81,8 +81,11 @@ acceptance criteria.
 
 ## Current status
 
-The repository is in the planning and visual-design stage. Application source code and runnable
-commands will be added after the initial console concept is reviewed.
+The phase-one local console is runnable. It includes the React/shadcn workspace shell, visible
+Test / Production routing, typed service statistics and operations, Agent-assisted curated import,
+Awesome source management, profile and credential configuration, and Fly app settings.
+
+![Starcat Admin Console overview](./docs/design/overview.png)
 
 ## Security boundary
 
@@ -94,8 +97,36 @@ Read [SECURITY.md](./SECURITY.md) and [PRIVACY.md](./PRIVACY.md) before configur
 
 ## Development
 
-The verified setup, build, test, and packaging commands will be documented together with the
-first executable scaffold. No deployment target is part of phase one.
+Requirements: Node.js 22+ and pnpm 11.
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Open `http://127.0.0.1:5173`. Vite proxies `/api` to the local BFF on
+`http://127.0.0.1:8787`. Configuration is stored under
+`~/.config/starcat-admin-console` by default; secret values are kept only in the BFF secrets file.
+
+Build and run the production-local bundle:
+
+```bash
+pnpm build
+pnpm start
+```
+
+Open `http://127.0.0.1:8787`.
+
+Verification:
+
+```bash
+pnpm check
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
+
+Copy `.env.example` only when runtime path overrides are needed. No remote deployment target is
+part of phase one.
 
 ## Contributing
 
