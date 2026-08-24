@@ -29,7 +29,7 @@ export async function requestUpstream(
   const profile = config.profiles[request.environment];
   const serviceConfig = profile.services[request.service];
   const baseURL =
-    request.environment === "production" && request.service !== "license"
+    request.environment === "production"
       ? profile.gatewayURL || serviceConfig.baseURL
       : serviceConfig.baseURL;
 
@@ -41,7 +41,7 @@ export async function requestUpstream(
   const headers = new Headers({
     Accept: "application/json",
   });
-  if (request.environment === "production" && request.service !== "license") {
+  if (request.environment === "production") {
     headers.set("X-SC-Svc", request.service);
   }
   if (request.auth) {

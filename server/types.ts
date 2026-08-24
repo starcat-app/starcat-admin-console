@@ -12,7 +12,6 @@ export const serviceIds = [
   "wiki",
   "recommend",
   "discovery",
-  "license",
 ] as const;
 
 export type ServiceId = (typeof serviceIds)[number];
@@ -35,7 +34,7 @@ export interface AgentConfig {
 
 export interface FlyConfig {
   apiBaseURL: string;
-  apps: Record<Exclude<ServiceId, "license">, string>;
+  apps: Record<ServiceId, string>;
 }
 
 export interface ConsoleConfig {

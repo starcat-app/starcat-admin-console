@@ -115,8 +115,7 @@ export function ProfilesPage() {
                 }
               />
               <FieldDescription>
-                生产业务服务通过 gateway + <code>X-SC-Svc</code> 路由；License
-                使用独立地址。
+                六个开源业务服务统一通过 gateway + <code>X-SC-Svc</code> 路由。
               </FieldDescription>
             </Field>
             <Separator className="my-6" />

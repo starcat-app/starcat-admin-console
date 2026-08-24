@@ -302,14 +302,6 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
       },
     ],
   },
-  license: {
-    id: "license",
-    label: "License",
-    description: "Direct 分发与授权链路",
-    readOnly: true,
-    stats: [],
-    actions: [],
-  },
 };
 
 export function pickValue(input: unknown, expression?: string): unknown {

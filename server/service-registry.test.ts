@@ -3,6 +3,17 @@ import { describe, expect, it } from "vitest";
 import { pickValue, serviceRegistry } from "./service-registry.js";
 
 describe("service registry", () => {
+  it("contains only the six open-source business services", () => {
+    expect(Object.keys(serviceRegistry)).toEqual([
+      "sharing",
+      "trending",
+      "weekly",
+      "wiki",
+      "recommend",
+      "discovery",
+    ]);
+  });
+
   it("resolves nested and selected statistic values", () => {
     const body = {
       data: { modes: [{ mode: "popular", total: 42 }], repos: { total: 9 } },

@@ -8,7 +8,6 @@ export const serviceIds = [
   "wiki",
   "recommend",
   "discovery",
-  "license",
 ] as const;
 
 export type ServiceId = (typeof serviceIds)[number];
@@ -29,7 +28,7 @@ export interface PublicConfig {
   agent: { baseURL: string; model: string };
   fly: {
     apiBaseURL: string;
-    apps: Record<Exclude<ServiceId, "license">, string>;
+    apps: Record<ServiceId, string>;
   };
   secrets: {
     profiles: Record<

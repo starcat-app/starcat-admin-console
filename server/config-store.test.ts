@@ -1,5 +1,12 @@
 /** 密钥脱敏和文件权限是本地 BFF 的核心安全回归测试。 */
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -42,6 +49,14 @@ describe("ConfigStore", () => {
     expect(publicConfig.secrets.profiles.production.weekly.adminKey).toEqual(
       state,
     );
+    expect(Object.keys(publicConfig.profiles.production.services)).toEqual([
+      "sharing",
+      "trending",
+      "weekly",
+      "wiki",
+      "recommend",
+      "discovery",
+    ]);
     expect(JSON.stringify(publicConfig)).not.toContain("weekly-secret-value");
     expect(persisted).toContain("weekly-secret-value");
     expect(
@@ -58,6 +73,35 @@ describe("ConfigStore", () => {
     expect((await store.publicConfig()).secrets.githubToken).toEqual({
       configured: false,
     });
+  });
+
+  it("drops unknown service entries left by an older local config", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "starcat-admin-test-"));
+    temporaryDirectories.push(directory);
+    const store = new ConfigStore(directory);
+    const config = await store.loadConfig();
+    const legacy = structuredClone(config) as typeof config & {
+      profiles: typeof config.profiles & {
+        test: typeof config.profiles.test & {
+          services: typeof config.profiles.test.services & {
+            closed_service: { baseURL: string };
+          };
+        };
+      };
+    };
+    legacy.profiles.test.services.closed_service = {
+      baseURL: "https://closed.example.invalid",
+    };
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      path.join(directory, "config.json"),
+      JSON.stringify(legacy),
+      "utf8",
+    );
+
+    expect(await store.loadConfig()).not.toHaveProperty(
+      "profiles.test.services.closed_service",
+    );
   });
 });
 

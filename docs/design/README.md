@@ -1,13 +1,13 @@
 # Starcat Admin Console 视觉概念
 
-> 状态：首轮概念稿，等待 dong4j 确认；确认前不作为已锁定设计，也不进入 React 实现。
+> 状态：视觉方向已确认；总览和环境配置图由当前本地实现直接截取。
 
 ## 概念稿
 
-- [`overview.png`](./overview.png)：总览、服务健康、快捷操作和最近活动。
+- [`overview.png`](./overview.png)：六个开源业务服务的总览和健康状态。
 - [`curated-imports.png`](./curated-imports.png)：Agent 线索分析、联网核验与证据审阅。
 - [`awesome-sources-production.png`](./awesome-sources-production.png)：生产环境下的 Awesome 来源列表与编辑抽屉。
-- [`environment-profiles.png`](./environment-profiles.png)：本地多服务 URL、脱敏 Key 状态和生产路由提示。
+- [`environment-profiles.png`](./environment-profiles.png)：六个本地服务 URL、脱敏 Key 状态和生产路由提示。
 
 图中的数值、日期、版本号和仓库示例只用于说明布局，不代表真实数据或版本承诺。实现时由真实
 API 或明确标记的开发 fixture 提供。

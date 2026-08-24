@@ -22,10 +22,6 @@ import {
   type StoredSecrets,
 } from "./types.js";
 
-const businessServiceIds = serviceIds.filter(
-  (service): service is Exclude<ServiceId, "license"> => service !== "license",
-);
-
 const testPorts: Record<ServiceId, number> = {
   sharing: 5001,
   trending: 5002,
@@ -33,16 +29,26 @@ const testPorts: Record<ServiceId, number> = {
   wiki: 5004,
   recommend: 5005,
   discovery: 5006,
-  license: 5010,
 };
 
 const serviceConnectionSchema = z.object({
   baseURL: z.string(),
 });
 
+// 使用显式对象会在读取旧配置时自动丢弃未知服务（例如误加入的闭源服务），
+// 同时保证六个开源业务服务的连接项完整存在。
+const serviceConnectionsSchema = z.object({
+  sharing: serviceConnectionSchema,
+  trending: serviceConnectionSchema,
+  weekly: serviceConnectionSchema,
+  wiki: serviceConnectionSchema,
+  recommend: serviceConnectionSchema,
+  discovery: serviceConnectionSchema,
+});
+
 const environmentProfileSchema = z.object({
   gatewayURL: z.string(),
-  services: z.record(z.enum(serviceIds), serviceConnectionSchema),
+  services: serviceConnectionsSchema,
 });
 
 const consoleConfigSchema = z.object({
@@ -56,7 +62,14 @@ const consoleConfigSchema = z.object({
   }),
   fly: z.object({
     apiBaseURL: z.string(),
-    apps: z.record(z.enum(businessServiceIds), z.string()),
+    apps: z.object({
+      sharing: z.string(),
+      trending: z.string(),
+      weekly: z.string(),
+      wiki: z.string(),
+      recommend: z.string(),
+      discovery: z.string(),
+    }),
   }),
 });
 
@@ -65,10 +78,19 @@ const secretEntrySchema = z.object({
   adminKey: z.string().optional(),
 });
 
+const secretProfileSchema = z.object({
+  sharing: secretEntrySchema,
+  trending: secretEntrySchema,
+  weekly: secretEntrySchema,
+  wiki: secretEntrySchema,
+  recommend: secretEntrySchema,
+  discovery: secretEntrySchema,
+});
+
 const storedSecretsSchema = z.object({
   profiles: z.object({
-    test: z.record(z.enum(serviceIds), secretEntrySchema),
-    production: z.record(z.enum(serviceIds), secretEntrySchema),
+    test: secretProfileSchema,
+    production: secretProfileSchema,
   }),
   agentApiKey: z.string().optional(),
   githubToken: z.string().optional(),
@@ -80,9 +102,6 @@ function makeDefaultProfile(environment: EnvironmentId) {
     serviceIds.map((service) => {
       if (environment === "test") {
         return [service, { baseURL: `http://127.0.0.1:${testPorts[service]}` }];
-      }
-      if (service === "license") {
-        return [service, { baseURL: "https://starcat-license-api.fly.dev" }];
       }
       return [service, { baseURL: "https://starcat-api.fly.dev" }];
     }),

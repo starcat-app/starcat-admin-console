@@ -7,14 +7,13 @@ const services = [
   "wiki",
   "recommend",
   "discovery",
-  "license",
 ].map((id, index) => ({
   id,
   label: id[0].toUpperCase() + id.slice(1),
   description: `${id} test fixture`,
-  readOnly: id === "license",
+  readOnly: false,
   online: index !== 3,
-  authenticated: index < 5,
+  authenticated: true,
   latencyMs: 18 + index,
   stats:
     index < 4
@@ -29,7 +28,7 @@ const services = [
       : [],
   actions: [],
   credentials: {
-    apiKey: { configured: index < 5 },
+    apiKey: { configured: true },
     adminKey: { configured: index < 3 },
   },
 }));
@@ -51,7 +50,7 @@ test("switches environment and navigates the console shell", async ({
   await expect(
     page.getByRole("heading", { name: "System overview" }),
   ).toBeVisible();
-  await expect(page.getByText("6 / 7")).toBeVisible();
+  await expect(page.getByText("5 / 6")).toBeVisible();
   await page.getByRole("switch", { name: "Switch environment" }).click();
   await expect(
     page.getByText("Production environment", { exact: false }),
