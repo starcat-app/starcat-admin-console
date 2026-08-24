@@ -66,7 +66,7 @@ brew install --cask starcat
 `starcat-site/_local-admin` 页面，并在功能对齐且验收通过后，承接 Starcat macOS App
 内现有「精选发布台」的职责。
 
-第一阶段只在管理员本机运行，规划职责包括：
+第一阶段只在管理员本机运行，职责包括：
 
 - 展示 Starcat 配套 API 的健康状态与数据统计；
 - 在页面上明确切换测试环境和生产环境；
@@ -83,6 +83,7 @@ brew install --cask starcat
 第一阶段本地控制台已经可以运行，现已包含 React/shadcn 工作区、明确的测试/生产环境路由、
 白名单化服务统计与运维动作、Agent 辅助精选导入、Awesome 来源管理、连接与密钥配置，以及
 Fly 应用设置。
+自动化检查、浏览器验证与真实测试/生产环境人工验收已于 2026-08-24 完成。
 
 ![Starcat Admin Console 总览](./docs/design/overview.png)
 
@@ -99,6 +100,7 @@ Fly 应用设置。
 需要 Node.js 22+ 与 pnpm 11：
 
 ```bash
+corepack enable
 pnpm install
 pnpm dev
 ```
@@ -126,6 +128,31 @@ pnpm test:e2e
 
 仅在需要覆盖运行路径时复制 `.env.example`。第一阶段仍不包含远程部署目标。
 
+## 配置说明
+
+从控制台侧边栏进入 **Profiles**。凭据原文只写入本地 BFF，保存后浏览器无法读取。
+
+| 环境 | 服务路由 | API 凭据 | Admin 凭据 |
+|---|---|---|---|
+| Test | 六个独立本地 URL（默认 `127.0.0.1:5001` 至 `:5006`） | 每个服务分别配置 API Key | 仅 Weekly 与 Discovery |
+| Production | 单一 gateway URL，通过 `X-SC-Svc` 选择服务 | 六个服务共享一把 API Key | 仅 Weekly 与 Discovery |
+
+服务鉴权契约刻意保持最小范围：
+
+| 服务 | 默认 Test URL | API Key 用途 | 独立 Admin Key |
+|---|---|---|---|
+| Sharing | `http://127.0.0.1:5001` | 健康检查、ping 与统计 | 无 |
+| Trending | `http://127.0.0.1:5002` | API 与 `/internal/*` 操作 | 无 |
+| Weekly | `http://127.0.0.1:5003` | 公开 API 与统计 | 有，用于发布和 `/internal/*` 操作 |
+| Wiki | `http://127.0.0.1:5004` | API 与 `/internal/*` 操作 | 无 |
+| Recommend | `http://127.0.0.1:5005` | 当前控制台 API 访问 | 无 |
+| Discovery | `http://127.0.0.1:5006` | 公开 API 与统计 | 有，用于 Awesome CRUD 和 `/internal/*` 操作 |
+
+Agent 设置可配置 OpenAI-compatible Base URL、模型、Agent API Key，以及用于提高 GitHub
+仓库核验额度的可选 GitHub Token。Fly 设置使用 Fly Token，并可通过
+`STARCAT_SUPPORTS_DIR` 定位相邻服务仓库。运行路径覆盖项见 [`.env.example`](./.env.example)；
+上游服务凭据必须通过页面录入，不写入环境变量文件。
+
 ## 参与贡献
 
 提交 Pull Request 前请阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)。
@@ -137,4 +164,5 @@ pnpm test:e2e
 
 ## License
 
-MIT，详见 [LICENSE](./LICENSE)。
+MIT，详见 [LICENSE](./LICENSE)。第三方开源组件致谢见
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。

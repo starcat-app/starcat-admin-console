@@ -66,7 +66,7 @@ A local-first operations console for Starcat services, data workflows, and curat
 intended to replace the legacy `_local-admin` page and, after feature-parity acceptance, the
 Curated Publisher currently embedded in the Starcat macOS app.
 
-The first phase runs only on the operator's machine. Its planned responsibilities are:
+The first phase runs only on the operator's machine. Its responsibilities are:
 
 - service health and data statistics for Starcat support APIs;
 - a visible Test / Production environment switch;
@@ -84,6 +84,8 @@ acceptance criteria.
 The phase-one local console is runnable. It includes the React/shadcn workspace shell, visible
 Test / Production routing, typed service statistics and operations, Agent-assisted curated import,
 Awesome source management, profile and credential configuration, and Fly app settings.
+Automated checks, browser validation, and real Test / Production operator acceptance were completed
+on 2026-08-24.
 
 ![Starcat Admin Console overview](./docs/design/overview.png)
 
@@ -100,6 +102,7 @@ Read [SECURITY.md](./SECURITY.md) and [PRIVACY.md](./PRIVACY.md) before configur
 Requirements: Node.js 22+ and pnpm 11.
 
 ```bash
+corepack enable
 pnpm install
 pnpm dev
 ```
@@ -128,6 +131,33 @@ pnpm test:e2e
 Copy `.env.example` only when runtime path overrides are needed. No remote deployment target is
 part of phase one.
 
+## Configuration
+
+Open **Profiles** from the console sidebar. Credential values are written to the local BFF and are
+never readable from the browser after saving.
+
+| Environment | Service routing | API credential | Admin credentials |
+|---|---|---|---|
+| Test | Six independent local URLs (`127.0.0.1:5001` through `:5006` by default) | One API Key per service | Weekly and Discovery only |
+| Production | One gateway URL with `X-SC-Svc` selecting the service | One shared API Key for all six services | Weekly and Discovery only |
+
+The service credential contract is intentionally narrow:
+
+| Service | Default Test URL | API Key | Separate Admin Key |
+|---|---|---|---|
+| Sharing | `http://127.0.0.1:5001` | Health, ping, statistics | No |
+| Trending | `http://127.0.0.1:5002` | API and `/internal/*` operations | No |
+| Weekly | `http://127.0.0.1:5003` | Public API and statistics | Yes, for publication and `/internal/*` operations |
+| Wiki | `http://127.0.0.1:5004` | API and `/internal/*` operations | No |
+| Recommend | `http://127.0.0.1:5005` | Current console API access | No |
+| Discovery | `http://127.0.0.1:5006` | Public API and statistics | Yes, for Awesome CRUD and `/internal/*` operations |
+
+Agent settings accept an OpenAI-compatible base URL, model name, Agent API Key, and an optional
+GitHub token for higher-rate repository verification. Fly settings use a Fly token and may use
+`STARCAT_SUPPORTS_DIR` to locate sibling service checkouts. Runtime path overrides are documented
+in [`.env.example`](./.env.example); upstream credentials must be entered through the UI instead of
+the environment file.
+
 ## Contributing
 
 Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request.
@@ -139,4 +169,5 @@ Report vulnerabilities privately as described in [SECURITY.md](./SECURITY.md). U
 
 ## License
 
-MIT. See [LICENSE](./LICENSE).
+MIT. See [LICENSE](./LICENSE). Third-party attributions are listed in
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).

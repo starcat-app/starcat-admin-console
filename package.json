@@ -1,7 +1,26 @@
 {
   "name": "starcat-admin-console",
   "version": "0.1.0",
-  "private": false,
+  "private": true,
+  "description": "Local-first operations console for Starcat support services and data workflows.",
+  "license": "MIT",
+  "author": "dong4j",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/starcat-app/starcat-admin-console.git"
+  },
+  "homepage": "https://github.com/starcat-app/starcat-admin-console#readme",
+  "bugs": {
+    "url": "https://github.com/starcat-app/starcat-admin-console/issues"
+  },
+  "keywords": [
+    "starcat",
+    "admin-console",
+    "react",
+    "shadcn-ui",
+    "local-first",
+    "developer-tools"
+  ],
   "type": "module",
   "packageManager": "pnpm@11.17.0",
   "engines": {

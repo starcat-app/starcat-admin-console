@@ -7,7 +7,7 @@
 - [`overview.png`](./overview.png)：六个开源业务服务的总览和健康状态。
 - [`curated-imports.png`](./curated-imports.png)：Agent 线索分析、联网核验与证据审阅。
 - [`awesome-sources-production.png`](./awesome-sources-production.png)：生产环境下的 Awesome 来源列表与编辑抽屉。
-- [`environment-profiles.png`](./environment-profiles.png)：六个本地服务 URL、脱敏 Key 状态和生产路由提示。
+- [`environment-profiles.png`](./environment-profiles.png)：六个本地服务 URL、真实凭据能力和环境路由提示。
 
 图中的数值、日期、版本号和仓库示例只用于说明布局，不代表真实数据或版本承诺。实现时由真实
 API 或明确标记的开发 fixture 提供。
