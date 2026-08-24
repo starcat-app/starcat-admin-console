@@ -40,11 +40,11 @@ export function ActivityPage() {
                 <TableRow key={entry.id}>
                   <TableCell>
                     {entry.outcome === "success" ? (
-                      <CheckCircle2 className="size-4 text-emerald-600" />
+                      <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
                     ) : entry.outcome === "failed" ? (
-                      <CircleX className="size-4 text-red-600" />
+                      <CircleX className="size-4 text-red-600 dark:text-red-400" />
                     ) : (
-                      <Clock3 className="size-4 text-blue-600" />
+                      <Clock3 className="size-4 text-blue-600 dark:text-blue-400" />
                     )}
                   </TableCell>
                   <TableCell className="font-medium">{entry.title}</TableCell>

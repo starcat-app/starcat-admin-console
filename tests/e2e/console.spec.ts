@@ -74,3 +74,22 @@ test("opens navigation on a narrow viewport", async ({ page }) => {
     page.getByRole("heading", { name: "Awesome sources" }),
   ).toBeVisible();
 });
+
+test("switches to dark theme and keeps the preference after reload", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Theme: System" }).click();
+  await page.getByRole("menuitemradio", { name: "Dark" }).click();
+
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => localStorage.getItem("starcat-admin-theme")),
+    )
+    .toBe("dark");
+
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(page.getByRole("button", { name: "Theme: Dark" })).toBeVisible();
+});

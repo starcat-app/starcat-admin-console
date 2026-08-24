@@ -195,7 +195,7 @@ export function AwesomePage() {
                   <TableCell>
                     {source.featured ? (
                       <Badge
-                        className="border-amber-200 bg-amber-50 text-amber-700"
+                        className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/35 dark:bg-amber-500/10 dark:text-amber-300"
                         variant="outline"
                       >
                         <Star className="size-3 fill-current" /> Featured

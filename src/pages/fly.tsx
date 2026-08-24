@@ -189,7 +189,7 @@ export function FlySettingsPage() {
                     variant="outline"
                     className={
                       configQuery.data?.secrets.flyToken.configured
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-300"
                         : ""
                     }
                   >
@@ -348,7 +348,7 @@ export function FlySettingsPage() {
                     variant="outline"
                     className={
                       variable.configured
-                        ? "border-emerald-200 text-emerald-700"
+                        ? "border-emerald-200 text-emerald-700 dark:border-emerald-500/35 dark:text-emerald-300"
                         : ""
                     }
                   >
@@ -357,7 +357,7 @@ export function FlySettingsPage() {
                 </label>
               ))}
               {localVariables.isError && (
-                <p className="text-xs text-red-600">
+                <p className="text-xs text-red-600 dark:text-red-400">
                   {localVariables.error.message}
                 </p>
               )}
@@ -422,7 +422,7 @@ export function FlySettingsPage() {
       </section>
       <div className="mt-6 rounded-lg border border-dashed p-5">
         <div className="flex gap-3">
-          <CheckCircle2 className="size-5 text-emerald-600" />
+          <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
           <div>
             <h3 className="text-sm font-semibold">Secret value isolation</h3>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">

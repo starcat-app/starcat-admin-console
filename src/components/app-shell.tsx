@@ -9,16 +9,29 @@ import {
   Globe2,
   LayoutDashboard,
   Menu,
+  Monitor,
+  Moon,
   Rocket,
   ServerCog,
   Settings2,
   Sparkles,
+  Sun,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Suspense, useState, type ComponentType } from "react";
 
 import { useConsole } from "@/console-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -101,14 +114,15 @@ export function AppShell() {
             </div>
 
             <div className="flex items-center gap-3">
+              <ThemeMenu />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div
                     className={cn(
                       "flex items-center gap-2 rounded-md border px-2.5 py-1.5",
                       isProduction
-                        ? "border-amber-300 bg-amber-50 text-amber-950"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-950",
+                        ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/12 dark:text-amber-100"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-100",
                     )}
                   >
                     <span
@@ -148,7 +162,7 @@ export function AppShell() {
           </header>
 
           {isProduction && (
-            <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-950">
+            <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
               Production environment ·
               写操作会直接影响线上数据，请核对动作与目标服务。
             </div>
@@ -161,6 +175,60 @@ export function AppShell() {
         </div>
       </div>
     </div>
+  );
+}
+
+const themeOptions = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+] as const;
+
+type ThemeMode = (typeof themeOptions)[number]["value"];
+
+/**
+ * 显式保留三态选择，避免“跟随系统”被误认为固定浅色或深色。
+ * next-themes 只持久化该非敏感偏好，不接触控制台的环境与密钥状态。
+ */
+function ThemeMenu() {
+  const { theme, setTheme } = useTheme();
+  const selected: ThemeMode = themeOptions.some(
+    (option) => option.value === theme,
+  )
+    ? (theme as ThemeMode)
+    : "system";
+  const current = themeOptions.find((option) => option.value === selected)!;
+  const CurrentIcon = current.icon;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={`Theme: ${current.label}`}
+        >
+          <CurrentIcon />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuRadioGroup
+          value={selected}
+          onValueChange={(value) => setTheme(value as ThemeMode)}
+        >
+          {themeOptions.map((option) => {
+            const Icon = option.icon;
+            return (
+              <DropdownMenuRadioItem key={option.value} value={option.value}>
+                <Icon /> {option.label}
+              </DropdownMenuRadioItem>
+            );
+          })}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -217,7 +285,7 @@ function Sidebar({
             <span className="text-xs font-medium">Local BFF</span>
             <Badge
               variant="outline"
-              className="border-emerald-200 bg-emerald-50 text-emerald-700"
+              className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-300"
             >
               127.0.0.1
             </Badge>
@@ -316,8 +384,8 @@ export function EnvironmentMark() {
       className={cn(
         "border font-semibold uppercase tracking-wider",
         production
-          ? "border-amber-200 bg-amber-50 text-amber-800"
-          : "border-emerald-200 bg-emerald-50 text-emerald-800",
+          ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/35 dark:bg-amber-500/10 dark:text-amber-300"
+          : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-300",
       )}
       variant="outline"
     >

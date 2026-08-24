@@ -325,7 +325,7 @@ export function ImportsPage() {
                 </Button>
               </div>
               {environment === "production" && (
-                <Alert className="mt-4 border-amber-200 bg-amber-50 text-amber-950">
+                <Alert className="mt-4 border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/35 dark:bg-amber-500/10 dark:text-amber-100">
                   <ShieldCheck />
                   <AlertTitle>Direct production write</AlertTitle>
                   <AlertDescription>
@@ -335,7 +335,7 @@ export function ImportsPage() {
                 </Alert>
               )}
               {published && (
-                <Alert className="mt-4 border-emerald-200 bg-emerald-50 text-emerald-950">
+                <Alert className="mt-4 border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-100">
                   <CheckCircle2 />
                   <AlertTitle>
                     Batch {batch.data?.status ?? "submitted"}
@@ -406,10 +406,19 @@ function WorkflowStep({
 function FindingBadge({ status }: { status: ImportFinding["status"] }) {
   const config =
     status === "confirmed"
-      ? ["Confirmed", "border-emerald-200 bg-emerald-50 text-emerald-700"]
+      ? [
+          "Confirmed",
+          "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-300",
+        ]
       : status === "needs_review"
-        ? ["Needs review", "border-amber-200 bg-amber-50 text-amber-700"]
-        : ["Not found", "border-red-200 bg-red-50 text-red-700"];
+        ? [
+            "Needs review",
+            "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/35 dark:bg-amber-500/10 dark:text-amber-300",
+          ]
+        : [
+            "Not found",
+            "border-red-200 bg-red-50 text-red-700 dark:border-red-500/35 dark:bg-red-500/10 dark:text-red-300",
+          ];
   return (
     <Badge variant="outline" className={config[1]}>
       {status === "confirmed" && <CheckCircle2 className="size-3" />}

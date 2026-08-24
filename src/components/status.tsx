@@ -19,10 +19,10 @@ export function StatusBadge({
       className={cn(
         "gap-1.5 font-medium",
         pending
-          ? "border-blue-200 bg-blue-50 text-blue-700"
+          ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/35 dark:bg-blue-500/10 dark:text-blue-300"
           : ok
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-red-200 bg-red-50 text-red-700",
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-300"
+            : "border-red-200 bg-red-50 text-red-700 dark:border-red-500/35 dark:bg-red-500/10 dark:text-red-300",
       )}
     >
       <Icon className={cn("size-3", pending && "animate-spin")} /> {children}

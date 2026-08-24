@@ -437,7 +437,9 @@ function SecretField({
         <Badge
           variant="outline"
           className={
-            state ? "border-emerald-200 bg-emerald-50 text-emerald-700" : ""
+            state
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-300"
+              : ""
           }
         >
           {state ? (
