@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import type { ConfigStore } from "./config-store.js";
+import { credentialKindsForService } from "./service-registry.js";
 import {
   serviceIds,
   type EnvironmentId,
@@ -26,10 +27,35 @@ export function createConfigRoutes(store: ConfigStore) {
     return context.json({ data: await store.publicConfig() });
   });
 
+  app.put("/profiles/:environment/secrets/sharedApiKey", async (context) => {
+    const environment = parseEnvironment(context.req.param("environment"));
+    if (environment !== "production") {
+      return context.json(
+        { error: "shared API key is only available in production" },
+        400,
+      );
+    }
+    const { value } = secretValueSchema.parse(await context.req.json());
+    const state = await store.updateProductionSharedApiKey(value);
+    return context.json({ data: state });
+  });
+
   app.put("/profiles/:environment/:service/secrets/:kind", async (context) => {
     const environment = parseEnvironment(context.req.param("environment"));
     const service = parseService(context.req.param("service"));
     const kind = parseSecretKind(context.req.param("kind"));
+    if (environment === "production" && kind === "apiKey") {
+      return context.json(
+        { error: "production API key must use the shared API key" },
+        400,
+      );
+    }
+    if (!credentialKindsForService(service).includes(kind)) {
+      return context.json(
+        { error: `${kind} is not supported by ${service}` },
+        400,
+      );
+    }
     const { value } = secretValueSchema.parse(await context.req.json());
     const state = await store.updateServiceSecret(
       environment,

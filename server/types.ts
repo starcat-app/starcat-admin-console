@@ -54,6 +54,7 @@ export interface PublicConsoleConfig extends ConsoleConfig {
       EnvironmentId,
       Record<ServiceId, Record<SecretKind, SecretState>>
     >;
+    productionSharedApiKey: SecretState;
     agentApiKey: SecretState;
     githubToken: SecretState;
     flyToken: SecretState;
@@ -66,6 +67,7 @@ export interface StoredSecrets {
     EnvironmentId,
     Record<ServiceId, Partial<Record<SecretKind, string>>>
   >;
+  productionSharedApiKey?: string;
   agentApiKey?: string;
   githubToken?: string;
   flyToken?: string;

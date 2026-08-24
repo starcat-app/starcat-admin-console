@@ -32,8 +32,14 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useConsole } from "@/console-context";
 import { api, jsonBody } from "@/lib/api";
-import type { PublicConfig, ServiceId } from "@/types";
+import type { PublicConfig, SecretKind, ServiceId } from "@/types";
 import { serviceIds } from "@/types";
+
+const adminServiceIds = ["weekly", "discovery"] as const satisfies ServiceId[];
+
+type SecretTarget =
+  | { scope: "shared" }
+  | { scope: "service"; service: ServiceId; kind: SecretKind };
 
 function useConfig() {
   return useQuery({
@@ -53,10 +59,7 @@ export function ProfilesPage() {
   const draft = drafts[environment] ?? profile;
   const setDraft = (next: PublicConfig["profiles"]["test"]) =>
     setDrafts((current) => ({ ...current, [environment]: next }));
-  const [secretTarget, setSecretTarget] = useState<{
-    service: ServiceId;
-    kind: "apiKey" | "adminKey";
-  } | null>(null);
+  const [secretTarget, setSecretTarget] = useState<SecretTarget | null>(null);
 
   const save = useMutation({
     mutationFn: () =>
@@ -100,80 +103,21 @@ export function ProfilesPage() {
         </div>
         {draft && (
           <div className="p-5">
-            <Field>
-              <FieldLabel htmlFor="gateway-url">Gateway URL</FieldLabel>
-              <Input
-                id="gateway-url"
-                value={draft.gatewayURL}
-                onChange={(event) =>
-                  setDraft({ ...draft, gatewayURL: event.target.value })
-                }
-                placeholder={
-                  environment === "test"
-                    ? "测试环境可留空"
-                    : "https://starcat-api.fly.dev"
-                }
+            {environment === "production" ? (
+              <ProductionProfile
+                draft={draft}
+                setDraft={setDraft}
+                config={query.data!}
+                setSecretTarget={setSecretTarget}
               />
-              <FieldDescription>
-                六个开源业务服务统一通过 gateway + <code>X-SC-Svc</code> 路由。
-              </FieldDescription>
-            </Field>
-            <Separator className="my-6" />
-            <div className="overflow-hidden rounded-lg border">
-              <div className="grid grid-cols-[150px_minmax(220px,1fr)_180px] gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground">
-                <span>Service</span>
-                <span>Base URL</span>
-                <span>Credentials</span>
-              </div>
-              {serviceIds.map((service) => {
-                const secret =
-                  query.data!.secrets.profiles[environment][service];
-                return (
-                  <div
-                    key={service}
-                    className="grid grid-cols-1 gap-3 border-b px-4 py-4 last:border-b-0 md:grid-cols-[150px_minmax(220px,1fr)_180px] md:items-center"
-                  >
-                    <div>
-                      <div className="text-sm font-medium capitalize">
-                        {service}
-                      </div>
-                      <div className="font-mono text-[10px] text-muted-foreground">
-                        X-SC-Svc: {service}
-                      </div>
-                    </div>
-                    <Input
-                      aria-label={`${service} base URL`}
-                      value={draft.services[service].baseURL}
-                      onChange={(event) =>
-                        setDraft({
-                          ...draft,
-                          services: {
-                            ...draft.services,
-                            [service]: { baseURL: event.target.value },
-                          },
-                        })
-                      }
-                    />
-                    <div className="flex gap-2">
-                      <SecretButton
-                        label="API"
-                        configured={secret.apiKey.configured}
-                        onClick={() =>
-                          setSecretTarget({ service, kind: "apiKey" })
-                        }
-                      />
-                      <SecretButton
-                        label="Admin"
-                        configured={secret.adminKey.configured}
-                        onClick={() =>
-                          setSecretTarget({ service, kind: "adminKey" })
-                        }
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            ) : (
+              <TestProfile
+                draft={draft}
+                setDraft={setDraft}
+                config={query.data!}
+                setSecretTarget={setSecretTarget}
+              />
+            )}
           </div>
         )}
       </div>
@@ -186,6 +130,174 @@ export function ProfilesPage() {
           void client.invalidateQueries({ queryKey: ["config"] });
         }}
       />
+    </div>
+  );
+}
+
+function ProductionProfile({
+  draft,
+  setDraft,
+  config,
+  setSecretTarget,
+}: {
+  draft: PublicConfig["profiles"]["production"];
+  setDraft: (next: PublicConfig["profiles"]["production"]) => void;
+  config: PublicConfig;
+  setSecretTarget: (target: SecretTarget) => void;
+}) {
+  return (
+    <>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <Field>
+          <FieldLabel htmlFor="gateway-url">Gateway URL</FieldLabel>
+          <Input
+            id="gateway-url"
+            value={draft.gatewayURL}
+            onChange={(event) =>
+              setDraft({ ...draft, gatewayURL: event.target.value })
+            }
+            placeholder="https://starcat-api.fly.dev"
+          />
+          <FieldDescription>
+            六个开源服务统一通过 gateway + <code>X-SC-Svc</code> 路由。
+          </FieldDescription>
+        </Field>
+        <div className="rounded-lg border bg-muted/25 p-4">
+          <div className="mb-3">
+            <div className="text-sm font-medium">Shared API key</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Gateway 的六个服务共用一把 API Key。
+            </p>
+          </div>
+          <SecretButton
+            label="Shared API"
+            configured={config.secrets.productionSharedApiKey.configured}
+            onClick={() => setSecretTarget({ scope: "shared" })}
+          />
+        </div>
+      </div>
+      <Separator className="my-6" />
+      <div>
+        <div className="mb-3">
+          <h3 className="text-sm font-semibold">Privileged credentials</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            只有 Weekly 与 Discovery 的管理接口使用独立 Admin Key。
+          </p>
+        </div>
+        <div className="overflow-hidden rounded-lg border">
+          {adminServiceIds.map((service) => {
+            const secret = config.secrets.profiles.production[service];
+            return (
+              <div
+                key={service}
+                className="flex flex-col justify-between gap-3 border-b px-4 py-4 last:border-b-0 sm:flex-row sm:items-center"
+              >
+                <div>
+                  <div className="text-sm font-medium capitalize">
+                    {service}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    Internal write operations
+                  </div>
+                </div>
+                <div className="w-full sm:w-36">
+                  <SecretButton
+                    label="Admin"
+                    configured={secret.adminKey.configured}
+                    onClick={() =>
+                      setSecretTarget({
+                        scope: "service",
+                        service,
+                        kind: "adminKey",
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TestProfile({
+  draft,
+  setDraft,
+  config,
+  setSecretTarget,
+}: {
+  draft: PublicConfig["profiles"]["test"];
+  setDraft: (next: PublicConfig["profiles"]["test"]) => void;
+  config: PublicConfig;
+  setSecretTarget: (target: SecretTarget) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border">
+      <div className="grid grid-cols-[150px_minmax(220px,1fr)_180px] gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground">
+        <span>Service</span>
+        <span>Local Base URL</span>
+        <span>Credentials</span>
+      </div>
+      {serviceIds.map((service) => {
+        const secret = config.secrets.profiles.test[service];
+        const supportsAdmin = adminServiceIds.includes(
+          service as (typeof adminServiceIds)[number],
+        );
+        return (
+          <div
+            key={service}
+            className="grid grid-cols-1 gap-3 border-b px-4 py-4 last:border-b-0 md:grid-cols-[150px_minmax(220px,1fr)_180px] md:items-center"
+          >
+            <div>
+              <div className="text-sm font-medium capitalize">{service}</div>
+              <div className="font-mono text-[10px] text-muted-foreground">
+                Direct local service
+              </div>
+            </div>
+            <Input
+              aria-label={`${service} base URL`}
+              value={draft.services[service].baseURL}
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  services: {
+                    ...draft.services,
+                    [service]: { baseURL: event.target.value },
+                  },
+                })
+              }
+            />
+            <div className="flex gap-2">
+              <SecretButton
+                label="API"
+                configured={secret.apiKey.configured}
+                onClick={() =>
+                  setSecretTarget({
+                    scope: "service",
+                    service,
+                    kind: "apiKey",
+                  })
+                }
+              />
+              {supportsAdmin && (
+                <SecretButton
+                  label="Admin"
+                  configured={secret.adminKey.configured}
+                  onClick={() =>
+                    setSecretTarget({
+                      scope: "service",
+                      service,
+                      kind: "adminKey",
+                    })
+                  }
+                />
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -219,18 +331,28 @@ function SecretDialog({
   onOpenChange,
   onSaved,
 }: {
-  target: { service: ServiceId; kind: "apiKey" | "adminKey" } | null;
-  environment: string;
+  target: SecretTarget | null;
+  environment: "test" | "production";
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
   const [value, setValue] = useState("");
+  const endpoint =
+    target?.scope === "shared"
+      ? "/api/config/profiles/production/secrets/sharedApiKey"
+      : target
+        ? `/api/config/profiles/${environment}/${target.service}/secrets/${target.kind}`
+        : "";
+  const title =
+    target?.scope === "shared"
+      ? "Update shared API key"
+      : `Update ${target?.kind}`;
+  const scope =
+    target?.scope === "shared"
+      ? "production gateway"
+      : `${environment} / ${target?.service}`;
   const save = useMutation({
-    mutationFn: () =>
-      api(
-        `/api/config/profiles/${environment}/${target!.service}/secrets/${target!.kind}`,
-        { method: "PUT", ...jsonBody({ value }) },
-      ),
+    mutationFn: () => api(endpoint, { method: "PUT", ...jsonBody({ value }) }),
     onSuccess: () => {
       toast.success("密钥状态已更新");
       setValue("");
@@ -242,9 +364,9 @@ function SecretDialog({
     <Dialog open={!!target} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Update {target?.kind}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            为 {environment} / {target?.service}{" "}
+            为 {scope}{" "}
             设置新值。保存后页面只能看到状态与不可逆指纹，无法读回原文。
           </DialogDescription>
         </DialogHeader>

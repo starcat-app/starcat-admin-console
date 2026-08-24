@@ -3,6 +3,7 @@ import { Hono } from "hono";
 
 import type { ConfigStore } from "./config-store.js";
 import {
+  credentialKindsForService,
   pickValue,
   serviceRegistry,
   type ActionDescriptor,
@@ -132,6 +133,7 @@ async function loadService(
     ping,
     stats,
     actions: descriptor.actions,
+    credentialKinds: credentialKindsForService(service),
     credentials: secretState,
   };
 }

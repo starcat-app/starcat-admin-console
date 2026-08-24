@@ -1,5 +1,5 @@
 /** Starcat 上游请求适配器：集中处理环境路由、鉴权和超时。 */
-import type { ConfigStore } from "./config-store.js";
+import { resolveServiceSecret, type ConfigStore } from "./config-store.js";
 import type { EnvironmentId, SecretKind, ServiceId } from "./types.js";
 
 export interface UpstreamRequest {
@@ -45,8 +45,12 @@ export async function requestUpstream(
     headers.set("X-SC-Svc", request.service);
   }
   if (request.auth) {
-    const secret =
-      secrets.profiles[request.environment][request.service][request.auth];
+    const secret = resolveServiceSecret(
+      secrets,
+      request.environment,
+      request.service,
+      request.auth,
+    );
     if (!secret) {
       throw new UpstreamError(
         400,

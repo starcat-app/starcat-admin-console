@@ -12,7 +12,11 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ConfigStore, secretState } from "./config-store.js";
+import {
+  ConfigStore,
+  resolveServiceSecret,
+  secretState,
+} from "./config-store.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -73,6 +77,63 @@ describe("ConfigStore", () => {
     expect((await store.publicConfig()).secrets.githubToken).toEqual({
       configured: false,
     });
+  });
+
+  it("uses one shared API key for every production gateway service", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "starcat-admin-test-"));
+    temporaryDirectories.push(directory);
+    const store = new ConfigStore(directory);
+
+    const state = await store.updateProductionSharedApiKey("gateway-secret");
+    const [publicConfig, secrets] = await Promise.all([
+      store.publicConfig(),
+      store.loadSecrets(),
+    ]);
+
+    expect(publicConfig.secrets.productionSharedApiKey).toEqual(state);
+    for (const service of Object.values(
+      publicConfig.secrets.profiles.production,
+    )) {
+      expect(service.apiKey).toEqual(state);
+    }
+    expect(resolveServiceSecret(secrets, "production", "wiki", "apiKey")).toBe(
+      "gateway-secret",
+    );
+  });
+
+  it("keeps legacy per-service production API keys as a read-only fallback", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "starcat-admin-test-"));
+    temporaryDirectories.push(directory);
+    const store = new ConfigStore(directory);
+    const legacy = await store.loadSecrets();
+    legacy.profiles.production.wiki.apiKey = "legacy-wiki-key";
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      path.join(directory, "secrets.json"),
+      JSON.stringify(legacy),
+      "utf8",
+    );
+
+    const secrets = await store.loadSecrets();
+    expect(resolveServiceSecret(secrets, "production", "wiki", "apiKey")).toBe(
+      "legacy-wiki-key",
+    );
+    expect((await store.publicConfig()).secrets.productionSharedApiKey).toEqual(
+      secretState("legacy-wiki-key"),
+    );
+  });
+
+  it("rejects credentials outside the real service capability matrix", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "starcat-admin-test-"));
+    temporaryDirectories.push(directory);
+    const store = new ConfigStore(directory);
+
+    await expect(
+      store.updateServiceSecret("test", "wiki", "adminKey", "invalid"),
+    ).rejects.toThrow("adminKey is not supported by wiki");
+    await expect(
+      store.updateServiceSecret("production", "sharing", "apiKey", "invalid"),
+    ).rejects.toThrow("production API key must use the shared API key");
   });
 
   it("drops unknown service entries left by an older local config", async () => {

@@ -11,6 +11,7 @@ import path from "node:path";
 
 import { z } from "zod";
 
+import { credentialKindsForService } from "./service-registry.js";
 import {
   serviceIds,
   type ConsoleConfig,
@@ -92,6 +93,7 @@ const storedSecretsSchema = z.object({
     test: secretProfileSchema,
     production: secretProfileSchema,
   }),
+  productionSharedApiKey: z.string().optional(),
   agentApiKey: z.string().optional(),
   githubToken: z.string().optional(),
   flyToken: z.string().optional(),
@@ -178,9 +180,12 @@ export class ConfigStore {
       ...config,
       secrets: {
         profiles: {
-          test: redactSecretProfile(secrets.profiles.test),
-          production: redactSecretProfile(secrets.profiles.production),
+          test: redactSecretProfile(secrets, "test"),
+          production: redactSecretProfile(secrets, "production"),
         },
+        productionSharedApiKey: secretState(
+          resolveProductionSharedApiKey(secrets),
+        ),
         agentApiKey: secretState(secrets.agentApiKey),
         githubToken: secretState(secrets.githubToken),
         flyToken: secretState(secrets.flyToken),
@@ -228,12 +233,36 @@ export class ConfigStore {
     kind: SecretKind,
     value: string,
   ): Promise<SecretState> {
+    if (environment === "production" && kind === "apiKey") {
+      throw new Error("production API key must use the shared API key");
+    }
+    if (!credentialKindsForService(service).includes(kind)) {
+      throw new Error(`${kind} is not supported by ${service}`);
+    }
     const secrets = await this.loadSecrets();
     const normalized = value.trim();
     if (normalized) {
       secrets.profiles[environment][service][kind] = normalized;
     } else {
       delete secrets.profiles[environment][service][kind];
+    }
+    await this.writeJSON(this.secretsPath, secrets, 0o600);
+    return secretState(normalized);
+  }
+
+  async updateProductionSharedApiKey(value: string): Promise<SecretState> {
+    const secrets = await this.loadSecrets();
+    const normalized = value.trim();
+    if (normalized) {
+      secrets.productionSharedApiKey = normalized;
+    } else {
+      delete secrets.productionSharedApiKey;
+    }
+
+    // 一旦用户在新版入口保存，就清掉旧版为六个服务重复保存的生产 API Key。
+    // 这样“留空即删除”不会又从兼容字段中恢复出已删除的共享凭据。
+    for (const service of serviceIds) {
+      delete secrets.profiles.production[service].apiKey;
     }
     await this.writeJSON(this.secretsPath, secrets, 0o600);
     return secretState(normalized);
@@ -294,17 +323,52 @@ export function secretState(value?: string): SecretState {
 }
 
 function redactSecretProfile(
-  profile: StoredSecrets["profiles"][EnvironmentId],
+  secrets: StoredSecrets,
+  environment: EnvironmentId,
 ) {
   return Object.fromEntries(
     serviceIds.map((service) => [
       service,
       {
-        apiKey: secretState(profile[service].apiKey),
-        adminKey: secretState(profile[service].adminKey),
+        apiKey: secretState(
+          resolveServiceSecret(secrets, environment, service, "apiKey"),
+        ),
+        adminKey: credentialKindsForService(service).includes("adminKey")
+          ? secretState(
+              resolveServiceSecret(secrets, environment, service, "adminKey"),
+            )
+          : secretState(),
       },
     ]),
   ) as PublicConsoleConfig["secrets"]["profiles"][EnvironmentId];
+}
+
+/**
+ * 统一解析上游鉴权值。生产 API Key 优先使用新版共享字段；旧版按服务字段
+ * 只作为无损兼容回退，确保现有本地 secrets.json 升级后仍可立即工作。
+ */
+export function resolveServiceSecret(
+  secrets: StoredSecrets,
+  environment: EnvironmentId,
+  service: ServiceId,
+  kind: SecretKind,
+) {
+  if (environment === "production" && kind === "apiKey") {
+    return (
+      secrets.productionSharedApiKey?.trim() ||
+      secrets.profiles.production[service].apiKey
+    );
+  }
+  return secrets.profiles[environment][service][kind];
+}
+
+function resolveProductionSharedApiKey(secrets: StoredSecrets) {
+  return (
+    secrets.productionSharedApiKey?.trim() ||
+    serviceIds
+      .map((service) => secrets.profiles.production[service].apiKey?.trim())
+      .find(Boolean)
+  );
 }
 
 function resolveDataDirectory() {

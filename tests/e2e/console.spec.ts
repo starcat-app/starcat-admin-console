@@ -27,11 +27,49 @@ const services = [
         ]
       : [],
   actions: [],
+  credentialKinds:
+    id === "weekly" || id === "discovery" ? ["apiKey", "adminKey"] : ["apiKey"],
   credentials: {
     apiKey: { configured: true },
-    adminKey: { configured: index < 3 },
+    adminKey: { configured: id === "weekly" || id === "discovery" },
   },
 }));
+
+const serviceConnections = Object.fromEntries(
+  services.map((service, index) => [
+    service.id,
+    { baseURL: `http://127.0.0.1:${5001 + index}` },
+  ]),
+);
+
+const secretProfile = Object.fromEntries(
+  services.map((service) => [service.id, service.credentials]),
+);
+
+const config = {
+  profiles: {
+    test: { gatewayURL: "", services: serviceConnections },
+    production: {
+      gatewayURL: "https://starcat-api.fly.dev",
+      services: Object.fromEntries(
+        services.map((service) => [
+          service.id,
+          { baseURL: "https://starcat-api.fly.dev" },
+        ]),
+      ),
+    },
+  },
+  agent: { baseURL: "", model: "" },
+  fly: { apiBaseURL: "", apps: {} },
+  secrets: {
+    profiles: { test: secretProfile, production: secretProfile },
+    productionSharedApiKey: { configured: true, fingerprint: "1234ABCD" },
+    agentApiKey: { configured: false },
+    githubToken: { configured: false },
+    flyToken: { configured: false },
+  },
+  dataDirectory: "/tmp/starcat-admin-e2e",
+};
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/services?environment=*", (route) =>
@@ -39,6 +77,13 @@ test.beforeEach(async ({ page }) => {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ data: services }),
+    }),
+  );
+  await page.route("**/api/config", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: config }),
     }),
   );
 });
@@ -92,4 +137,30 @@ test("switches to dark theme and keeps the preference after reload", async ({
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expect(page.getByRole("button", { name: "Theme: Dark" })).toBeVisible();
+});
+
+test("shows only credentials supported by the selected environment", async ({
+  page,
+}) => {
+  await page.goto("/settings/profiles");
+  await expect(
+    page.getByRole("heading", { name: "Environment profiles" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "API", exact: true }),
+  ).toHaveCount(6);
+  await expect(
+    page.getByRole("button", { name: "Admin", exact: true }),
+  ).toHaveCount(2);
+
+  await page.getByRole("switch", { name: "Switch environment" }).click();
+  await expect(
+    page.getByRole("button", { name: "Shared API", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "API", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Admin", exact: true }),
+  ).toHaveCount(2);
 });

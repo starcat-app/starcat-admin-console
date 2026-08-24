@@ -201,7 +201,7 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
         label: "触发 probe sync",
         method: "POST",
         path: "/internal/sync/probe",
-        auth: "adminKey",
+        auth: "apiKey",
         destructive: false,
         description: "触发待处理探测任务",
       },
@@ -210,7 +210,7 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
         label: "刷新 owner",
         method: "POST",
         path: "/internal/refresh/owner",
-        auth: "adminKey",
+        auth: "apiKey",
         destructive: true,
         description: "刷新指定 GitHub owner 的探测缓存",
         fields: [
@@ -303,6 +303,21 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
     ],
   },
 };
+
+/**
+ * 从已登记的统计和动作推导服务实际需要的凭据。
+ *
+ * API Key 是所有服务的基础鉴权；Admin Key 只有某个白名单动作明确声明时
+ * 才会暴露给配置页，避免 UI 凭空制造并不存在的密钥概念。
+ */
+export function credentialKindsForService(service: ServiceId): SecretKind[] {
+  const descriptor = serviceRegistry[service];
+  const kinds = new Set<SecretKind>(["apiKey"]);
+  for (const item of [...descriptor.stats, ...descriptor.actions]) {
+    kinds.add(item.auth);
+  }
+  return [...kinds];
+}
 
 export function pickValue(input: unknown, expression?: string): unknown {
   if (!expression) return input;

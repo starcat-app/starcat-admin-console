@@ -108,7 +108,14 @@ export function ServicesPage() {
               </StatusBadge>
             </div>
 
-            <div className="grid gap-px border-b bg-border sm:grid-cols-3">
+            <div
+              className={cn(
+                "grid gap-px border-b bg-border",
+                current.credentialKinds.includes("adminKey")
+                  ? "sm:grid-cols-4"
+                  : "sm:grid-cols-3",
+              )}
+            >
               <InfoTile
                 icon={ShieldCheck}
                 label="Authentication"
@@ -116,13 +123,26 @@ export function ServicesPage() {
               />
               <InfoTile
                 icon={KeyRound}
-                label="Admin key"
+                label={
+                  environment === "production" ? "Shared API key" : "API key"
+                }
                 value={
-                  current.credentials.adminKey.configured
-                    ? `•••• ${current.credentials.adminKey.fingerprint ?? ""}`
+                  current.credentials.apiKey.configured
+                    ? `•••• ${current.credentials.apiKey.fingerprint ?? ""}`
                     : "Not configured"
                 }
               />
+              {current.credentialKinds.includes("adminKey") && (
+                <InfoTile
+                  icon={KeyRound}
+                  label="Admin key"
+                  value={
+                    current.credentials.adminKey.configured
+                      ? `•••• ${current.credentials.adminKey.fingerprint ?? ""}`
+                      : "Not configured"
+                  }
+                />
+              )}
               <InfoTile
                 icon={RefreshCw}
                 label="Latency"

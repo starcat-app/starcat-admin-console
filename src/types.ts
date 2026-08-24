@@ -11,6 +11,7 @@ export const serviceIds = [
 ] as const;
 
 export type ServiceId = (typeof serviceIds)[number];
+export type SecretKind = "apiKey" | "adminKey";
 
 export interface SecretState {
   configured: boolean;
@@ -33,8 +34,9 @@ export interface PublicConfig {
   secrets: {
     profiles: Record<
       EnvironmentId,
-      Record<ServiceId, Record<"apiKey" | "adminKey", SecretState>>
+      Record<ServiceId, Record<SecretKind, SecretState>>
     >;
+    productionSharedApiKey: SecretState;
     agentApiKey: SecretState;
     githubToken: SecretState;
     flyToken: SecretState;
@@ -73,7 +75,8 @@ export interface ServiceStatus {
     error?: string;
   }>;
   actions: ServiceAction[];
-  credentials: Record<"apiKey" | "adminKey", SecretState>;
+  credentialKinds: SecretKind[];
+  credentials: Record<SecretKind, SecretState>;
 }
 
 export interface AwesomeSource {
