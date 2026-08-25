@@ -1,10 +1,12 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bot,
   CheckCircle2,
   Code2,
   ExternalLink,
+  FolderTree,
   LoaderCircle,
+  Plus,
   Search,
   Send,
   ShieldCheck,
@@ -19,13 +21,28 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useConsole } from "@/console-context";
 import { api, jsonBody } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { ImportFinding } from "@/types";
+import type { ImportFinding, WeeklyImportSource } from "@/types";
 
 interface IdentificationResult {
   identificationID: string;
@@ -40,15 +57,71 @@ interface ImportBatch {
   discarded: number;
 }
 
+const emptySourceDraft = {
+  code: "",
+  display_name_zh: "",
+  display_name_en: "",
+};
+
 export function ImportsPage() {
   const { environment, record } = useConsole();
+  const queryClient = useQueryClient();
   const [text, setText] = useState("");
-  const [sourceCode, setSourceCode] = useState("ai_intelligence");
+  const [preferredSourceCode, setPreferredSourceCode] = useState("");
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [sourceDraft, setSourceDraft] = useState(emptySourceDraft);
   const [findings, setFindings] = useState<ImportFinding[]>([]);
   const [published, setPublished] = useState<{
     idempotencyKey: string;
     batchId?: string;
   } | null>(null);
+
+  const sourceQueryKey = ["weekly-import-sources", environment] as const;
+  const sourceQuery = useQuery({
+    queryKey: sourceQueryKey,
+    queryFn: () =>
+      api<WeeklyImportSource[]>(
+        `/api/imports/sources?environment=${environment}`,
+      ),
+  });
+  const sources = useMemo(() => sourceQuery.data ?? [], [sourceQuery.data]);
+  const sourceCode =
+    sources.find((source) => source.code === preferredSourceCode)?.code ??
+    sources.find((source) => source.code === "ai_intelligence")?.code ??
+    sources[0]?.code ??
+    "";
+  const selectedSource = sources.find((source) => source.code === sourceCode);
+
+  const createSource = useMutation({
+    mutationFn: () =>
+      api<WeeklyImportSource>(
+        `/api/imports/sources?environment=${environment}`,
+        {
+          method: "POST",
+          ...jsonBody(sourceDraft),
+        },
+      ),
+    onSuccess: async (source) => {
+      await queryClient.invalidateQueries({ queryKey: sourceQueryKey });
+      setPreferredSourceCode(source.code);
+      setSourceDraft(emptySourceDraft);
+      setSourceDialogOpen(false);
+      record({
+        title: "Weekly category created",
+        detail: `${source.display_name_zh} (${source.code})`,
+        outcome: "success",
+      });
+      toast.success(`已新增分类：${source.display_name_zh}`);
+    },
+    onError: (error) => {
+      record({
+        title: "Weekly category creation",
+        detail: error.message,
+        outcome: "failed",
+      });
+      toast.error(error.message);
+    },
+  });
 
   const identify = useMutation({
     mutationFn: () =>
@@ -302,20 +375,72 @@ export function ImportsPage() {
           {!!findings.length && (
             <div className="border-t p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <label className="text-xs font-medium" htmlFor="source-code">
-                    Source code
+                    发布到分类
                   </label>
-                  <Input
-                    id="source-code"
-                    className="mt-1.5"
-                    value={sourceCode}
-                    onChange={(event) => setSourceCode(event.target.value)}
-                  />
+                  <div className="mt-1.5 flex gap-2">
+                    <Select
+                      value={sourceCode}
+                      onValueChange={setPreferredSourceCode}
+                      disabled={sourceQuery.isPending || sourceQuery.isError}
+                    >
+                      <SelectTrigger
+                        id="source-code"
+                        className="h-10 min-w-0 flex-1"
+                      >
+                        <SelectValue placeholder="选择 Weekly 分类" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" align="start">
+                        {sources.map((source) => (
+                          <SelectItem key={source.code} value={source.code}>
+                            <span>{source.display_name_zh}</span>
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {source.code}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      onClick={() => setSourceDialogOpen(true)}
+                    >
+                      <Plus /> 新增分类
+                    </Button>
+                  </div>
+                  {sourceQuery.isError ? (
+                    <div className="mt-2 flex items-center justify-between gap-3 text-xs text-destructive">
+                      <span>
+                        无法读取 Weekly 分类：{sourceQuery.error.message}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => sourceQuery.refetch()}
+                      >
+                        重试
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <FolderTree className="size-3.5" />
+                      将发布到：探索 → 周刊 →{" "}
+                      {selectedSource?.display_name_zh ?? "请选择分类"}
+                    </p>
+                  )}
                 </div>
                 <Button
                   size="lg"
-                  disabled={!selected.length || publish.isPending}
+                  disabled={
+                    !selected.length ||
+                    !sourceCode ||
+                    sourceQuery.isError ||
+                    publish.isPending
+                  }
                   onClick={() => publish.mutate()}
                 >
                   <Send />{" "}
@@ -357,6 +482,96 @@ export function ImportsPage() {
           )}
         </section>
       </div>
+
+      <Dialog open={sourceDialogOpen} onOpenChange={setSourceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新增 Weekly 分类</DialogTitle>
+            <DialogDescription>
+              创建后可立即用于人工导入，并显示在 Starcat 的“探索 → 周刊”中。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <label className="text-xs font-medium" htmlFor="source-new-code">
+                分类标识
+              </label>
+              <Input
+                id="source-new-code"
+                value={sourceDraft.code}
+                onChange={(event) =>
+                  setSourceDraft((current) => ({
+                    ...current,
+                    code: event.target.value.toLowerCase(),
+                  }))
+                }
+                placeholder="developer_tools"
+              />
+              <p className="text-xs text-muted-foreground">
+                以小写字母开头，仅使用小写字母、数字和下划线。
+              </p>
+            </div>
+            <div className="grid gap-1.5">
+              <label className="text-xs font-medium" htmlFor="source-new-zh">
+                中文名称
+              </label>
+              <Input
+                id="source-new-zh"
+                value={sourceDraft.display_name_zh}
+                onChange={(event) =>
+                  setSourceDraft((current) => ({
+                    ...current,
+                    display_name_zh: event.target.value,
+                  }))
+                }
+                placeholder="开发工具"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <label className="text-xs font-medium" htmlFor="source-new-en">
+                英文名称
+              </label>
+              <Input
+                id="source-new-en"
+                value={sourceDraft.display_name_en}
+                onChange={(event) =>
+                  setSourceDraft((current) => ({
+                    ...current,
+                    display_name_en: event.target.value,
+                  }))
+                }
+                placeholder="Developer Tools"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSourceDialogOpen(false)}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                !/^[a-z][a-z0-9_]{1,31}$/.test(sourceDraft.code) ||
+                !sourceDraft.display_name_zh.trim() ||
+                !sourceDraft.display_name_en.trim() ||
+                createSource.isPending
+              }
+              onClick={() => createSource.mutate()}
+            >
+              {createSource.isPending ? (
+                <LoaderCircle className="animate-spin" />
+              ) : (
+                <Plus />
+              )}
+              {createSource.isPending ? "正在创建…" : "创建分类"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

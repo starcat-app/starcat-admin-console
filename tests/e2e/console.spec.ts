@@ -108,6 +108,27 @@ test.beforeEach(async ({ page }) => {
       }),
     }),
   );
+  await page.route("**/api/imports/sources?environment=*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            code: "ai_intelligence",
+            display_name_zh: "AI 情报",
+            display_name_en: "AI Intelligence",
+            icon_key: "sparkles",
+            sort_order: 50,
+            count: 12,
+            ingest_mode: "manual_import",
+            enabled: true,
+            manual_import_enabled: true,
+          },
+        ],
+      }),
+    }),
+  );
 });
 
 test("switches environment and navigates the console shell", async ({
@@ -209,4 +230,96 @@ test("uses a detected local Agent without provider credentials", async ({
 
   await page.getByRole("button", { name: "测试 Agent" }).click();
   await expect(page.getByText("Codex CLI 连接正常")).toBeVisible();
+});
+
+test("selects and creates a Weekly import category before publishing", async ({
+  page,
+}) => {
+  const sources = [
+    {
+      code: "ai_intelligence",
+      display_name_zh: "AI 情报",
+      display_name_en: "AI Intelligence",
+      icon_key: "sparkles",
+      sort_order: 50,
+      count: 12,
+      ingest_mode: "manual_import",
+      enabled: true,
+      manual_import_enabled: true,
+    },
+  ];
+  await page.route("**/api/imports/sources?environment=*", async (route) => {
+    if (route.request().method() === "POST") {
+      const created = {
+        ...sources[0],
+        ...(route.request().postDataJSON() as object),
+        count: 0,
+      };
+      sources.push(created);
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ data: created }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: sources }),
+    });
+  });
+  await page.route("**/api/imports/identify", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          identificationID: "fixture-identification",
+          findings: [
+            {
+              id: "finding-0",
+              original: "OpenAI Codex",
+              title: "Codex",
+              status: "confirmed",
+              confidence: 0.99,
+              reason: "官方仓库",
+              repository: "openai/codex",
+              candidate: {
+                fullName: "openai/codex",
+                htmlURL: "https://github.com/openai/codex",
+                description: "Codex CLI",
+                stars: 100,
+                language: "Rust",
+                ownerAvatar: "https://example.com/openai.png",
+                archived: false,
+                readmeExcerpt: "Codex",
+                matchedBy: "fixture",
+              },
+              candidates: [],
+              selected: true,
+            },
+          ],
+        },
+      }),
+    }),
+  );
+
+  await page.goto("/imports");
+  await page.getByPlaceholder("示例：", { exact: false }).fill("OpenAI Codex");
+  await page
+    .getByRole("button", { name: "Identify & verify projects" })
+    .click();
+  await expect(page.getByText("将发布到：探索 → 周刊 → AI 情报")).toBeVisible();
+
+  await page.getByRole("button", { name: "新增分类" }).click();
+  await page.getByLabel("分类标识").fill("developer_tools");
+  await page.getByLabel("中文名称").fill("开发工具");
+  await page.getByLabel("英文名称").fill("Developer Tools");
+  await page.getByRole("button", { name: "创建分类" }).click();
+
+  await expect(
+    page.getByText("将发布到：探索 → 周刊 → 开发工具"),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "新增分类" })).toBeVisible();
 });

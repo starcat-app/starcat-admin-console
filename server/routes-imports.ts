@@ -76,6 +76,12 @@ const publishRequestSchema = z.object({
     .max(200),
 });
 
+const createManualSourceSchema = z.object({
+  code: z.string().regex(/^[a-z][a-z0-9_]{1,31}$/),
+  display_name_zh: z.string().trim().min(1).max(40),
+  display_name_en: z.string().trim().min(1).max(80),
+});
+
 export interface GitHubCandidate {
   fullName: string;
   htmlURL: string;
@@ -91,6 +97,7 @@ export interface GitHubCandidate {
 interface ImportRouteDependencies {
   runLocalAgent?: (input: StructuredLocalAgentInput) => Promise<unknown>;
   fetchRepository?: typeof fetchGitHubRepository;
+  requestUpstream?: typeof requestUpstream;
 }
 
 interface IdentifiedClue {
@@ -106,6 +113,32 @@ export function createImportRoutes(
   dependencies: ImportRouteDependencies = {},
 ) {
   const app = new Hono();
+  const upstream = dependencies.requestUpstream ?? requestUpstream;
+
+  app.get("/sources", async (context) => {
+    const environment = parseEnvironment(context.req.query("environment"));
+    const result = await upstream(store, {
+      environment,
+      service: "weekly",
+      path: "/internal/sources?manual_import=true",
+      auth: "adminKey",
+    });
+    return context.json(result.body as never, result.status as never);
+  });
+
+  app.post("/sources", async (context) => {
+    const environment = parseEnvironment(context.req.query("environment"));
+    const body = createManualSourceSchema.parse(await context.req.json());
+    const result = await upstream(store, {
+      environment,
+      service: "weekly",
+      method: "POST",
+      path: "/internal/sources",
+      auth: "adminKey",
+      body,
+    });
+    return context.json(result.body as never, result.status as never);
+  });
 
   app.post("/identify", async (context) => {
     const { text } = identifyRequestSchema.parse(await context.req.json());
@@ -164,7 +197,7 @@ export function createImportRoutes(
       request.sourceCode,
       repositories,
     );
-    const result = await requestUpstream(store, {
+    const result = await upstream(store, {
       environment: request.environment,
       service: "weekly",
       method: "POST",
@@ -185,7 +218,7 @@ export function createImportRoutes(
   app.get("/batches/:batch", async (context) => {
     const environment = parseEnvironment(context.req.query("environment"));
     const batch = encodeURIComponent(context.req.param("batch"));
-    const result = await requestUpstream(store, {
+    const result = await upstream(store, {
       environment,
       service: "weekly",
       path: `/internal/imports/${batch}`,

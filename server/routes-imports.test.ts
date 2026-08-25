@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ConfigStore } from "./config-store.js";
+import type { UpstreamRequest } from "./upstream.js";
 import {
   createImportRoutes,
   stableIdempotencyKey,
@@ -94,5 +95,72 @@ describe("local Agent identification", () => {
       selected: false,
     });
     expect(payload.data.findings[1].reason).toContain("GitHub API 未找到");
+  });
+});
+
+describe("Weekly manual sources", () => {
+  it("lists and creates categories through the Weekly admin contract", async () => {
+    const requests: UpstreamRequest[] = [];
+    const store = {} as ConfigStore;
+    const app = createImportRoutes(store, {
+      requestUpstream: async (_store, request) => {
+        requests.push(request);
+        const source = {
+          code: "developer_tools",
+          display_name_zh: "开发工具",
+          display_name_en: "Developer Tools",
+          manual_import_enabled: true,
+        };
+        return {
+          ok: true,
+          status: request.method === "POST" ? 201 : 200,
+          durationMs: 1,
+          body:
+            request.method === "POST"
+              ? { data: source }
+              : { data: [source], meta: { total: 1 } },
+        };
+      },
+    });
+
+    const listed = await app.request("/sources?environment=production");
+    expect(listed.status).toBe(200);
+    expect(await listed.json()).toMatchObject({
+      data: [{ code: "developer_tools" }],
+    });
+
+    const created = await app.request("/sources?environment=test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: "developer_tools",
+        display_name_zh: "开发工具",
+        display_name_en: "Developer Tools",
+      }),
+    });
+    expect(created.status).toBe(201);
+    expect(await created.json()).toMatchObject({
+      data: { code: "developer_tools" },
+    });
+    expect(requests).toEqual([
+      expect.objectContaining({
+        environment: "production",
+        service: "weekly",
+        path: "/internal/sources?manual_import=true",
+        auth: "adminKey",
+      }),
+      expect.objectContaining({
+        environment: "test",
+        service: "weekly",
+        method: "POST",
+        path: "/internal/sources",
+        auth: "adminKey",
+        body: {
+          code: "developer_tools",
+          display_name_zh: "开发工具",
+          display_name_en: "Developer Tools",
+        },
+      }),
+    ]);
   });
 });

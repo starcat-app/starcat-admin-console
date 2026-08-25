@@ -115,6 +115,19 @@ export interface ImportFinding {
   selected: boolean;
 }
 
+/** Weekly 服务端目录中的人工导入分类；code 是发布 payload 的稳定标识。 */
+export interface WeeklyImportSource {
+  code: string;
+  display_name_zh: string;
+  display_name_en: string;
+  icon_key: string;
+  sort_order: number;
+  count: number;
+  ingest_mode: string;
+  enabled: boolean;
+  manual_import_enabled: boolean;
+}
+
 export interface GitHubCandidate {
   fullName: string;
   htmlURL: string;
