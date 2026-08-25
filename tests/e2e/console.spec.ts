@@ -235,6 +235,7 @@ test("uses a detected local Agent without provider credentials", async ({
 test("selects and creates a Weekly import category before publishing", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1800, height: 1000 });
   const sources = [
     {
       code: "ai_intelligence",
@@ -306,11 +307,32 @@ test("selects and creates a Weekly import category before publishing", async ({
   );
 
   await page.goto("/imports");
+  const inputPanel = page.getByTestId("import-input-panel");
+  const reviewPanel = page.getByTestId("import-review-panel");
+  const emptyInputBox = await inputPanel.boundingBox();
+  const emptyReviewBox = await reviewPanel.boundingBox();
+  const actionBox = await page
+    .getByRole("button", { name: "Identify & verify projects" })
+    .boundingBox();
+  expect(emptyInputBox?.height).toBeGreaterThanOrEqual(700);
+  expect(emptyInputBox?.height).toBe(emptyReviewBox?.height);
+  const actionBottomInset = Math.round(
+    emptyInputBox!.y +
+      emptyInputBox!.height -
+      (actionBox!.y + actionBox!.height),
+  );
+  expect(actionBottomInset).toBeGreaterThanOrEqual(20);
+  expect(actionBottomInset).toBeLessThanOrEqual(21);
+
   await page.getByPlaceholder("示例：", { exact: false }).fill("OpenAI Codex");
   await page
     .getByRole("button", { name: "Identify & verify projects" })
     .click();
   await expect(page.getByText("将发布到：探索 → 周刊 → AI 情报")).toBeVisible();
+  const resultInputBox = await inputPanel.boundingBox();
+  const resultReviewBox = await reviewPanel.boundingBox();
+  expect(resultInputBox?.height).toBe(emptyInputBox?.height);
+  expect(resultReviewBox?.height).toBe(emptyReviewBox?.height);
 
   await page.getByRole("button", { name: "新增分类" }).click();
   await page.getByLabel("分类标识").fill("developer_tools");

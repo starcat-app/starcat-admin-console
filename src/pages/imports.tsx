@@ -247,8 +247,11 @@ export function ImportsPage() {
         />
       </div>
 
-      <div className="grid gap-6 2xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.28fr)]">
-        <section className="rounded-lg border bg-card p-5">
+      <div className="grid gap-6 2xl:h-[calc(100dvh-15rem)] 2xl:min-h-[700px] 2xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.28fr)]">
+        <section
+          data-testid="import-input-panel"
+          className="flex min-h-[640px] flex-col rounded-lg border bg-card p-5 2xl:h-full 2xl:min-h-0"
+        >
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Input evidence</h2>
@@ -261,7 +264,7 @@ export function ImportsPage() {
             </Badge>
           </div>
           <Textarea
-            className="mt-5 min-h-[360px] resize-y font-mono text-xs leading-5"
+            className="mt-5 min-h-[430px] flex-1 resize-none font-mono text-xs leading-5"
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder={
@@ -272,8 +275,16 @@ export function ImportsPage() {
             <span>{text.length.toLocaleString()} / 100,000 chars</span>
             <span>Maximum 200 clues</span>
           </div>
+          {identify.isPending && (
+            <div className="mt-4 shrink-0">
+              <Progress value={66} className="h-1" />
+              <p className="mt-2 text-xs text-muted-foreground">
+                识别会调用当前 Agent 与 GitHub API，耗时取决于线索数量。
+              </p>
+            </div>
+          )}
           <Button
-            className="mt-5 w-full"
+            className="mt-5 w-full shrink-0"
             size="lg"
             disabled={!text.trim() || identify.isPending}
             onClick={() => identify.mutate()}
@@ -287,18 +298,13 @@ export function ImportsPage() {
               ? "Agent 正在联网甄别并核验…"
               : "Identify & verify projects"}
           </Button>
-          {identify.isPending && (
-            <div className="mt-4">
-              <Progress value={66} className="h-1" />
-              <p className="mt-2 text-xs text-muted-foreground">
-                识别会调用当前 Agent 与 GitHub API，耗时取决于线索数量。
-              </p>
-            </div>
-          )}
         </section>
 
-        <section className="min-w-0 rounded-lg border bg-card">
-          <div className="flex flex-col justify-between gap-3 border-b px-5 py-4 sm:flex-row sm:items-center">
+        <section
+          data-testid="import-review-panel"
+          className="flex min-h-[640px] min-w-0 flex-col overflow-hidden rounded-lg border bg-card 2xl:h-full 2xl:min-h-0"
+        >
+          <div className="flex shrink-0 flex-col justify-between gap-3 border-b px-5 py-4 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-sm font-semibold">Verification review</h2>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -311,7 +317,7 @@ export function ImportsPage() {
             </div>
           </div>
           {!findings.length ? (
-            <div className="p-5">
+            <div className="min-h-0 flex-1 p-5 [&>*]:h-full">
               <EmptyState
                 icon={Sparkles}
                 title="No identification result"
@@ -319,7 +325,7 @@ export function ImportsPage() {
               />
             </div>
           ) : (
-            <div className="max-h-[620px] divide-y overflow-y-auto">
+            <div className="min-h-0 flex-1 divide-y overflow-y-auto">
               {findings.map((finding) => (
                 <div key={finding.id} className="p-5">
                   <div className="flex items-start gap-3">
@@ -373,7 +379,7 @@ export function ImportsPage() {
             </div>
           )}
           {!!findings.length && (
-            <div className="border-t p-5">
+            <div className="shrink-0 border-t p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div className="min-w-0 flex-1">
                   <label className="text-xs font-medium" htmlFor="source-code">
