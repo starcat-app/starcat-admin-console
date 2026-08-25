@@ -247,7 +247,7 @@ export function ImportsPage() {
         />
       </div>
 
-      <div className="grid gap-6 2xl:h-[calc(100dvh-15rem)] 2xl:min-h-[700px] 2xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.28fr)]">
+      <div className="grid gap-6 2xl:h-[min(55rem,calc(100dvh-15rem))] 2xl:min-h-[640px] 2xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.28fr)]">
         <section
           data-testid="import-input-panel"
           className="flex min-h-[640px] flex-col rounded-lg border bg-card p-5 2xl:h-full 2xl:min-h-0"

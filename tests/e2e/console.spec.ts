@@ -235,7 +235,8 @@ test("uses a detected local Agent without provider credentials", async ({
 test("selects and creates a Weekly import category before publishing", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1800, height: 1000 });
+  // 高窗口也必须保持紧凑，防止工作区跟随 viewport 无限拉长。
+  await page.setViewportSize({ width: 1800, height: 1400 });
   const sources = [
     {
       code: "ai_intelligence",
@@ -314,7 +315,7 @@ test("selects and creates a Weekly import category before publishing", async ({
   const actionBox = await page
     .getByRole("button", { name: "Identify & verify projects" })
     .boundingBox();
-  expect(emptyInputBox?.height).toBeGreaterThanOrEqual(700);
+  expect(emptyInputBox?.height).toBe(880);
   expect(emptyInputBox?.height).toBe(emptyReviewBox?.height);
   const actionBottomInset = Math.round(
     emptyInputBox!.y +
