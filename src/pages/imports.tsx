@@ -380,12 +380,17 @@ export function ImportsPage() {
           )}
           {!!findings.length && (
             <div className="shrink-0 border-t p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="min-w-0 flex-1">
-                  <label className="text-xs font-medium" htmlFor="source-code">
-                    发布到分类
-                  </label>
-                  <div className="mt-1.5 flex gap-2">
+              <div>
+                <label className="text-xs font-medium" htmlFor="source-code">
+                  发布到分类
+                </label>
+                {/*
+                  Publish 必须和分类下拉、新增按钮同一行顶对齐。
+                  路径说明在控件下方；若把 Publish 和整列做 items-end，按钮会相对下沉。
+                  SelectTrigger 默认 data-[size=default]:h-8，裸写 h-9 盖不掉，必须同层覆盖。
+                */}
+                <div className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-start">
+                  <div className="flex min-w-0 flex-1 items-start gap-2">
                     <Select
                       value={sourceCode}
                       onValueChange={setPreferredSourceCode}
@@ -393,7 +398,7 @@ export function ImportsPage() {
                     >
                       <SelectTrigger
                         id="source-code"
-                        className="h-10 min-w-0 flex-1"
+                        className="min-w-0 flex-1 data-[size=default]:h-9"
                       >
                         <SelectValue placeholder="选择 Weekly 分类" />
                       </SelectTrigger>
@@ -417,43 +422,43 @@ export function ImportsPage() {
                       <Plus /> 新增分类
                     </Button>
                   </div>
-                  {sourceQuery.isError ? (
-                    <div className="mt-2 flex items-center justify-between gap-3 text-xs text-destructive">
-                      <span>
-                        无法读取 Weekly 分类：{sourceQuery.error.message}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => sourceQuery.refetch()}
-                      >
-                        重试
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <FolderTree className="size-3.5" />
-                      将发布到：探索 → 周刊 →{" "}
-                      {selectedSource?.display_name_zh ?? "请选择分类"}
-                    </p>
-                  )}
+                  <Button
+                    size="lg"
+                    disabled={
+                      !selected.length ||
+                      !sourceCode ||
+                      sourceQuery.isError ||
+                      publish.isPending
+                    }
+                    onClick={() => publish.mutate()}
+                  >
+                    <Send />{" "}
+                    {publish.isPending
+                      ? "Publishing…"
+                      : `Publish ${selected.length} projects`}
+                  </Button>
                 </div>
-                <Button
-                  size="lg"
-                  disabled={
-                    !selected.length ||
-                    !sourceCode ||
-                    sourceQuery.isError ||
-                    publish.isPending
-                  }
-                  onClick={() => publish.mutate()}
-                >
-                  <Send />{" "}
-                  {publish.isPending
-                    ? "Publishing…"
-                    : `Publish ${selected.length} projects`}
-                </Button>
+                {sourceQuery.isError ? (
+                  <div className="mt-2 flex items-center justify-between gap-3 text-xs text-destructive">
+                    <span>
+                      无法读取 Weekly 分类：{sourceQuery.error.message}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => sourceQuery.refetch()}
+                    >
+                      重试
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <FolderTree className="size-3.5" />
+                    将发布到：探索 → 周刊 →{" "}
+                    {selectedSource?.display_name_zh ?? "请选择分类"}
+                  </p>
+                )}
               </div>
               {environment === "production" && (
                 <Alert className="mt-4 border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/35 dark:bg-amber-500/10 dark:text-amber-100">

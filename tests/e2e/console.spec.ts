@@ -330,6 +330,25 @@ test("selects and creates a Weekly import category before publishing", async ({
     .getByRole("button", { name: "Identify & verify projects" })
     .click();
   await expect(page.getByText("将发布到：探索 → 周刊 → AI 情报")).toBeVisible();
+  const selectBox = await page.getByLabel("发布到分类").boundingBox();
+  const addCategoryBox = await page
+    .getByRole("button", { name: "新增分类" })
+    .boundingBox();
+  const publishBox = await page
+    .getByRole("button", { name: /Publish \d+ projects/ })
+    .boundingBox();
+  expect(selectBox).toBeTruthy();
+  expect(addCategoryBox).toBeTruthy();
+  expect(publishBox).toBeTruthy();
+  // 三个操作控件必须顶对齐且同高；允许 1px 亚像素误差。
+  expect(Math.abs(selectBox!.y - addCategoryBox!.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(selectBox!.y - publishBox!.y)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(selectBox!.height - addCategoryBox!.height),
+  ).toBeLessThanOrEqual(1);
+  expect(Math.abs(selectBox!.height - publishBox!.height)).toBeLessThanOrEqual(
+    1,
+  );
   const resultInputBox = await inputPanel.boundingBox();
   const resultReviewBox = await reviewPanel.boundingBox();
   expect(resultInputBox?.height).toBe(emptyInputBox?.height);
