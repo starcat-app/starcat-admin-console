@@ -69,6 +69,17 @@ const inheritedEnvironmentKeys = [
   "OPENAI_API_KEY",
   "CLAUDE_CODE_OAUTH_TOKEN",
   "ANTHROPIC_API_KEY",
+  // CLI 的联网能力需要遵循开发者机器现有的代理与自签名证书配置。
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "ALL_PROXY",
+  "NO_PROXY",
+  "http_proxy",
+  "https_proxy",
+  "all_proxy",
+  "no_proxy",
+  "SSL_CERT_FILE",
+  "SSL_CERT_DIR",
 ] as const;
 
 export class LocalAgentError extends Error {
@@ -287,12 +298,16 @@ export function executeProcess(spec: ProcessSpec): Promise<ProcessResult> {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
-      if (terminationTimer) clearTimeout(terminationTimer);
       callback();
     };
     const terminate = () => {
       child.kill("SIGTERM");
-      terminationTimer = setTimeout(() => child.kill("SIGKILL"), 1_000);
+      // 不在 Promise settle 时清除此计时器：目标进程可能忽略 SIGTERM，
+      // 必须保留 SIGKILL 兜底，避免后台残留 Codex / Claude 子进程。
+      terminationTimer = setTimeout(() => {
+        terminationTimer = undefined;
+        child.kill("SIGKILL");
+      }, 1_000);
     };
     const append = (current: Buffer, chunk: Buffer) => {
       const next = Buffer.concat([current, chunk]);
@@ -321,6 +336,7 @@ export function executeProcess(spec: ProcessSpec): Promise<ProcessResult> {
       if (!settled) stderr = append(stderr, chunk);
     });
     child.on("error", (error: NodeJS.ErrnoException) => {
+      if (terminationTimer) clearTimeout(terminationTimer);
       finish(() => {
         const code = error.code === "ENOENT" ? "not_found" : "process_failed";
         const message =
@@ -331,6 +347,7 @@ export function executeProcess(spec: ProcessSpec): Promise<ProcessResult> {
       });
     });
     child.on("close", (code) => {
+      if (terminationTimer) clearTimeout(terminationTimer);
       finish(() => {
         if (code === 0) {
           resolve({ stdout: stdout.toString(), stderr: stderr.toString() });

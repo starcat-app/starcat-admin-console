@@ -73,6 +73,8 @@ describe("local Agent invocation", () => {
       PATH: "/opt/homebrew/bin",
       HOME: "/Users/test",
       CODEX_HOME: "/Users/test/.codex",
+      HTTPS_PROXY: "http://127.0.0.1:7890",
+      NO_PROXY: "127.0.0.1,localhost",
       WEEKLY_ADMIN_API_KEYS: "weekly-secret",
       DISCOVERY_ADMIN_API_KEYS: "discovery-secret",
       STARCAT_API_KEY: "gateway-secret",
@@ -82,6 +84,8 @@ describe("local Agent invocation", () => {
       PATH: "/opt/homebrew/bin",
       HOME: "/Users/test",
       CODEX_HOME: "/Users/test/.codex",
+      HTTPS_PROXY: "http://127.0.0.1:7890",
+      NO_PROXY: "127.0.0.1,localhost",
     });
   });
 
