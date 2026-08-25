@@ -152,11 +152,14 @@ The service credential contract is intentionally narrow:
 | Recommend | `http://127.0.0.1:5005` | Current console API access | No |
 | Discovery | `http://127.0.0.1:5006` | Public API and statistics | Yes, for Awesome CRUD and `/internal/*` operations |
 
-Agent settings accept an OpenAI-compatible base URL, model name, Agent API Key, and an optional
-GitHub token for higher-rate repository verification. Fly settings use a Fly token and may use
-`STARCAT_SUPPORTS_DIR` to locate sibling service checkouts. Runtime path overrides are documented
-in [`.env.example`](./.env.example); upstream credentials must be entered through the UI instead of
-the environment file.
+Agent settings use an already authenticated local Codex CLI by default and can switch to Claude
+Code. The BFF runs either CLI in a stateless, read-only process with structured output, then verifies
+every returned `owner/repo` through the GitHub API before it reaches the review list. The previous
+OpenAI-compatible Base URL, model, and Agent API Key remain available as an optional compatibility
+mode. An optional GitHub token raises the repository verification rate limit. Fly settings use a Fly
+token and may use `STARCAT_SUPPORTS_DIR` to locate sibling service checkouts. Runtime path overrides
+are documented in [`.env.example`](./.env.example); upstream credentials must be entered through the
+UI instead of the environment file.
 
 ## Contributing
 

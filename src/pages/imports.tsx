@@ -211,14 +211,14 @@ export function ImportsPage() {
               <Search />
             )}
             {identify.isPending
-              ? "Agent 正在拆分并联网核验…"
+              ? "Agent 正在联网甄别并核验…"
               : "Identify & verify projects"}
           </Button>
           {identify.isPending && (
             <div className="mt-4">
               <Progress value={66} className="h-1" />
               <p className="mt-2 text-xs text-muted-foreground">
-                识别会访问模型服务与 GitHub，耗时取决于线索数量。
+                识别会调用当前 Agent 与 GitHub API，耗时取决于线索数量。
               </p>
             </div>
           )}
@@ -229,7 +229,7 @@ export function ImportsPage() {
             <div>
               <h2 className="text-sm font-semibold">Verification review</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                AI 只能选择已通过 GitHub API 返回的候选仓库。
+                Agent 返回的仓库只有通过 GitHub API 复核后才能选中。
               </p>
             </div>
             <div className="flex gap-2">

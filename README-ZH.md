@@ -148,10 +148,12 @@ pnpm test:e2e
 | Recommend | `http://127.0.0.1:5005` | 当前控制台 API 访问 | 无 |
 | Discovery | `http://127.0.0.1:5006` | 公开 API 与统计 | 有，用于 Awesome CRUD 和 `/internal/*` 操作 |
 
-Agent 设置可配置 OpenAI-compatible Base URL、模型、Agent API Key，以及用于提高 GitHub
-仓库核验额度的可选 GitHub Token。Fly 设置使用 Fly Token，并可通过
-`STARCAT_SUPPORTS_DIR` 定位相邻服务仓库。运行路径覆盖项见 [`.env.example`](./.env.example)；
-上游服务凭据必须通过页面录入，不写入环境变量文件。
+Agent 设置默认复用本机已登录的 Codex CLI，也可切换到 Claude Code。BFF 使用无状态、只读
+子进程获得结构化结果，再通过 GitHub API 逐个复核返回的 `owner/repo`，通过后才进入人工审阅
+列表。原有 OpenAI-compatible Base URL、模型和 Agent API Key 收进可选兼容模式；GitHub Token
+仅用于提高仓库核验额度。Fly 设置使用 Fly Token，并可通过 `STARCAT_SUPPORTS_DIR` 定位相邻
+服务仓库。运行路径覆盖项见 [`.env.example`](./.env.example)；上游服务凭据必须通过页面录入，
+不写入环境变量文件。
 
 ## 参与贡献
 

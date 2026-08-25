@@ -524,7 +524,9 @@ export function AgentSettingsPage() {
                   </SelectContent>
                 </Select>
                 <FieldDescription>
-                  默认使用 CLI 自己保存的登录状态和模型配置。
+                  {isLocalRuntime
+                    ? "复用 CLI 已保存的登录状态；识别运行使用独立只读配置。"
+                    : "保留原有 Chat Completions 接口作为兼容模式。"}
                 </FieldDescription>
               </Field>
               {isLocalRuntime ? (
