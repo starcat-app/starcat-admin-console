@@ -1,4 +1,6 @@
 /** 本机 Agent 适配器的命令、安全环境与失败边界测试。 */
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -7,6 +9,7 @@ import {
   localAgentEnvironment,
   LocalAgentError,
   parseStructuredOutput,
+  resolveExecutable,
 } from "./local-agent.js";
 
 const schema = {
@@ -80,6 +83,12 @@ describe("local Agent invocation", () => {
       HOME: "/Users/test",
       CODEX_HOME: "/Users/test/.codex",
     });
+  });
+
+  it("resolves an executable path without invoking a shell", async () => {
+    expect(
+      await resolveExecutable("node", { PATH: path.dirname(process.execPath) }),
+    ).toBe(process.execPath);
   });
 
   it("reads Claude structured_output instead of the JSON envelope", () => {

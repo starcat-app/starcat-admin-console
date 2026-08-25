@@ -14,6 +14,14 @@ export type ServiceId = (typeof serviceIds)[number];
 export type SecretKind = "apiKey" | "adminKey";
 export type AgentRuntimeId = "codex" | "claude" | "openai-compatible";
 
+export interface LocalAgentStatus {
+  runtime: "codex" | "claude";
+  available: boolean;
+  command: string;
+  version?: string;
+  error?: string;
+}
+
 export interface SecretState {
   configured: boolean;
   fingerprint?: string;

@@ -3,6 +3,14 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import type { ConfigStore } from "./config-store.js";
+import {
+  inspectLocalAgent,
+  localAgentRuntimes,
+  runStructuredLocalAgent,
+  userFacingAgentError,
+  type LocalAgentStatus,
+  type StructuredLocalAgentInput,
+} from "./local-agent.js";
 import { credentialKindsForService } from "./service-registry.js";
 import {
   serviceIds,
@@ -10,11 +18,31 @@ import {
   type SecretKind,
   type ServiceId,
 } from "./types.js";
+import { UpstreamError } from "./upstream.js";
 
 const secretValueSchema = z.object({ value: z.string().max(20_000) });
 const globalSecretKinds = new Set(["agentApiKey", "githubToken", "flyToken"]);
+const localRuntimeSchema = z.enum(localAgentRuntimes);
+const localAgentTestSchema = z.object({ ok: z.literal(true) });
+const localAgentTestJSONSchema = {
+  type: "object",
+  properties: { ok: { type: "boolean", const: true } },
+  required: ["ok"],
+  additionalProperties: false,
+} satisfies Record<string, unknown>;
 
-export function createConfigRoutes(store: ConfigStore) {
+interface ConfigRouteDependencies {
+  inspectAgent?: (
+    runtime: (typeof localAgentRuntimes)[number],
+    cwd: string,
+  ) => Promise<LocalAgentStatus>;
+  runLocalAgent?: (input: StructuredLocalAgentInput) => Promise<unknown>;
+}
+
+export function createConfigRoutes(
+  store: ConfigStore,
+  dependencies: ConfigRouteDependencies = {},
+) {
   const app = new Hono();
 
   app.get("/", async (context) => {
@@ -69,6 +97,36 @@ export function createConfigRoutes(store: ConfigStore) {
   app.put("/agent", async (context) => {
     await store.updateAgent(await context.req.json());
     return context.json({ data: await store.publicConfig() });
+  });
+
+  app.get("/agent/runtimes", async (context) => {
+    const inspect = dependencies.inspectAgent ?? inspectLocalAgent;
+    const statuses = await Promise.all(
+      localAgentRuntimes.map((runtime) => inspect(runtime, process.cwd())),
+    );
+    return context.json({ data: statuses });
+  });
+
+  app.post("/agent/test", async (context) => {
+    const { runtime } = z
+      .object({ runtime: localRuntimeSchema })
+      .parse(await context.req.json());
+    const run = dependencies.runLocalAgent ?? runStructuredLocalAgent;
+    try {
+      const result = localAgentTestSchema.parse(
+        await run({
+          runtime,
+          cwd: process.cwd(),
+          timeoutMs: 60_000,
+          schema: localAgentTestJSONSchema,
+          prompt:
+            'This is a local connectivity test. Return only {"ok":true} using the requested JSON Schema. Do not call tools.',
+        }),
+      );
+      return context.json({ data: { runtime, ...result } });
+    } catch (error) {
+      throw new UpstreamError(502, userFacingAgentError(error));
+    }
   });
 
   app.put("/fly", async (context) => {

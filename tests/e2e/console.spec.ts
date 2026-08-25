@@ -59,7 +59,7 @@ const config = {
       ),
     },
   },
-  agent: { baseURL: "", model: "" },
+  agent: { runtime: "codex", baseURL: "", model: "" },
   fly: { apiBaseURL: "", apps: {} },
   secrets: {
     profiles: { test: secretProfile, production: secretProfile },
@@ -84,6 +84,28 @@ test.beforeEach(async ({ page }) => {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ data: config }),
+    }),
+  );
+  await page.route("**/api/config/agent/runtimes", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            runtime: "codex",
+            available: true,
+            command: "/opt/homebrew/bin/codex",
+            version: "codex-cli test",
+          },
+          {
+            runtime: "claude",
+            available: true,
+            command: "/opt/homebrew/bin/claude",
+            version: "Claude Code test",
+          },
+        ],
+      }),
     }),
   );
 });
@@ -163,4 +185,28 @@ test("shows only credentials supported by the selected environment", async ({
   await expect(
     page.getByRole("button", { name: "Admin", exact: true }),
   ).toHaveCount(2);
+});
+
+test("uses a detected local Agent without provider credentials", async ({
+  page,
+}) => {
+  await page.route("**/api/config/agent/test", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: { runtime: "codex", ok: true } }),
+    }),
+  );
+  await page.goto("/settings/agent");
+
+  await expect(
+    page.getByRole("heading", { name: "Agent & verification" }),
+  ).toBeVisible();
+  await expect(page.getByText("/opt/homebrew/bin/codex")).toBeVisible();
+  await expect(page.getByText("codex-cli test")).toBeVisible();
+  await expect(page.getByText("Agent API key")).toHaveCount(0);
+  await expect(page.getByText("GitHub token", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "测试 Agent" }).click();
+  await expect(page.getByText("Codex CLI 连接正常")).toBeVisible();
 });

@@ -6,7 +6,8 @@
  * 原始运营文本只通过 stdin 传入，避免文本内容参与命令解析。
  */
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -138,7 +139,7 @@ export async function inspectLocalAgent(
   cwd: string,
   execute: ProcessExecutor = executeProcess,
 ): Promise<LocalAgentStatus> {
-  const command = runtime;
+  const command = (await resolveExecutable(runtime)) ?? runtime;
   try {
     const result = await execute({
       command,
@@ -158,6 +159,24 @@ export async function inspectLocalAgent(
       error: userFacingAgentError(error),
     };
   }
+}
+
+/** 不调用 Shell，通过 PATH 逐项确认可执行文件并返回设置页可展示的真实路径。 */
+export async function resolveExecutable(
+  command: string,
+  source: NodeJS.ProcessEnv = process.env,
+) {
+  for (const directory of (source.PATH ?? "").split(path.delimiter)) {
+    if (!directory) continue;
+    const candidate = path.join(directory, command);
+    try {
+      await access(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // 当前 PATH 项不可执行时继续检查下一项。
+    }
+  }
+  return null;
 }
 
 export function buildStructuredInvocation(
