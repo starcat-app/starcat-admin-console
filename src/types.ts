@@ -12,6 +12,7 @@ export const serviceIds = [
 
 export type ServiceId = (typeof serviceIds)[number];
 export type SecretKind = "apiKey" | "adminKey";
+export type AgentRuntimeId = "codex" | "claude" | "openai-compatible";
 
 export interface SecretState {
   configured: boolean;
@@ -26,7 +27,7 @@ export interface PublicConfig {
       services: Record<ServiceId, { baseURL: string }>;
     }
   >;
-  agent: { baseURL: string; model: string };
+  agent: { runtime: AgentRuntimeId; baseURL: string; model: string };
   fly: {
     apiBaseURL: string;
     apps: Record<ServiceId, string>;

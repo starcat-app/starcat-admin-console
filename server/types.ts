@@ -17,6 +17,12 @@ export const serviceIds = [
 export type ServiceId = (typeof serviceIds)[number];
 export type EnvironmentId = "test" | "production";
 export type SecretKind = "apiKey" | "adminKey";
+export const agentRuntimeIds = [
+  "codex",
+  "claude",
+  "openai-compatible",
+] as const;
+export type AgentRuntimeId = (typeof agentRuntimeIds)[number];
 
 export interface ServiceConnectionConfig {
   baseURL: string;
@@ -28,6 +34,7 @@ export interface EnvironmentProfile {
 }
 
 export interface AgentConfig {
+  runtime: AgentRuntimeId;
   baseURL: string;
   model: string;
 }

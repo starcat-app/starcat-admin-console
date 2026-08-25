@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { credentialKindsForService } from "./service-registry.js";
 import {
+  agentRuntimeIds,
   serviceIds,
   type ConsoleConfig,
   type EnvironmentId,
@@ -58,6 +59,8 @@ const consoleConfigSchema = z.object({
     production: environmentProfileSchema,
   }),
   agent: z.object({
+    // 旧版配置没有 runtime；读取时直接迁移到本机 Codex 默认值。
+    runtime: z.enum(agentRuntimeIds).default("codex"),
     baseURL: z.string(),
     model: z.string(),
   }),
@@ -128,6 +131,7 @@ const defaultConfig: ConsoleConfig = {
     production: makeDefaultProfile("production"),
   },
   agent: {
+    runtime: "codex",
     baseURL: "",
     model: "",
   },
