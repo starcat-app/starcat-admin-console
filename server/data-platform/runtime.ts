@@ -59,11 +59,17 @@ export class DataPlatformRuntime {
   ) {}
 
   async initialize() {
-    this.initialized ??= (async () => {
+    const pending = (this.initialized ??= (async () => {
       await this.catalog.initialize();
       await this.catalog.markStaleJobsInterrupted();
-    })();
-    await this.initialized;
+    })());
+    try {
+      await pending;
+    } catch (error) {
+      // PostgreSQL 可能比 BFF 晚启动；失败 Promise 不能永久毒化 Runtime，下一次请求应重试。
+      if (this.initialized === pending) this.initialized = undefined;
+      throw error;
+    }
   }
 
   async downloads() {

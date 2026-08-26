@@ -119,6 +119,11 @@ export class PostgresDataPlatformCatalog implements DataPlatformCatalog {
   }
 
   async markStaleJobsInterrupted() {
+    // 查询结果只存在于 BFF 内存；进程重启后所有历史结果都已失效。
+    await this.sql`
+      UPDATE data_platform_jobs SET result_available = FALSE
+      WHERE result_available = TRUE
+    `;
     await this.sql`
       UPDATE data_platform_jobs SET
         state = 'interrupted',
@@ -178,15 +183,17 @@ export class MemoryDataPlatformCatalog implements DataPlatformCatalog {
 
   async markStaleJobsInterrupted() {
     for (const [jobId, job] of this.jobs) {
+      const resultAvailable = false;
       if (["queued", "running", "cancel_requested"].includes(job.state)) {
         this.jobs.set(jobId, {
           ...job,
+          resultAvailable,
           state: "interrupted",
           stage: "interrupted",
           errorCode: "BFF_RESTARTED",
           finishedAt: new Date().toISOString(),
         });
-      }
+      } else this.jobs.set(jobId, { ...job, resultAvailable });
     }
   }
 

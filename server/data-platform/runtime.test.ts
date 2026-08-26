@@ -85,7 +85,53 @@ describe("DataPlatformRuntime", () => {
 
     expect((await runtime.job(job.jobId))?.state).toBe("interrupted");
   });
+
+  it("clears transient result flags after a runtime restart", async () => {
+    const catalog = new MemoryDataPlatformCatalog();
+    const job = await catalog.createJob({
+      jobId: "job-completed",
+      actionId: "bigquery.sql-lab.query",
+      inputHash: "sha256:input",
+    });
+    await catalog.updateJob(job.jobId, {
+      state: "succeeded",
+      stage: "succeeded",
+      resultAvailable: true,
+    });
+
+    const runtime = new DataPlatformRuntime(
+      catalog,
+      config,
+      new FakeExecutor(),
+    );
+    await runtime.initialize();
+
+    expect((await runtime.job(job.jobId))?.state).toBe("succeeded");
+    expect((await runtime.job(job.jobId))?.resultAvailable).toBe(false);
+  });
+
+  it("retries catalog initialization after PostgreSQL becomes available", async () => {
+    const catalog = new FlakyCatalog();
+    const runtime = new DataPlatformRuntime(
+      catalog,
+      config,
+      new FakeExecutor(),
+    );
+
+    await expect(runtime.initialize()).rejects.toThrow("database unavailable");
+    await expect(runtime.initialize()).resolves.toBeUndefined();
+    expect(catalog.attempts).toBe(2);
+  });
 });
+
+class FlakyCatalog extends MemoryDataPlatformCatalog {
+  attempts = 0;
+
+  override async initialize() {
+    this.attempts += 1;
+    if (this.attempts === 1) throw new Error("database unavailable");
+  }
+}
 
 class FakeExecutor implements DataPlatformProcessExecutor {
   readonly requests: ProcessRequest[] = [];
