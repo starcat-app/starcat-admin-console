@@ -14,6 +14,7 @@ Starcat Admin Console is built with open-source packages declared in `package.js
 | shadcn/ui                          | MIT                                         | shadcn                                                                |
 | TanStack Router and Query          | MIT                                         | TanStack                                                              |
 | Hono                               | MIT                                         | Hono contributors                                                     |
+| Postgres.js                        | Unlicense                                   | Rasmus Porsager and contributors                                      |
 | Class Variance Authority           | Apache-2.0                                  | Joe Bell                                                              |
 | Tailwind Merge and tw-animate-css  | MIT                                         | Their respective contributors                                         |
 | Zod, Sonner, clsx, and next-themes | MIT                                         | Their respective contributors                                         |

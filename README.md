@@ -75,6 +75,8 @@ The first phase runs only on the operator's machine. Its responsibilities are:
 - Agent-assisted curated import with web and GitHub verification;
 - CRUD for Awesome **sources** exposed by Discover, without editing built-in README content;
 - Fly environment and secret operations from an advanced settings area.
+- an isolated local data-platform area for BigQuery quota, WatchEvent / PushEvent download control,
+  and guarded `githubarchive` SQL exploration.
 
 See [the implementation plan](./docs/落地方案.md) for scope, architecture, milestones, and
 acceptance criteria.
@@ -83,9 +85,9 @@ acceptance criteria.
 
 The phase-one local console is runnable. It includes the React/shadcn workspace shell, visible
 Test / Production routing, typed service statistics and operations, Agent-assisted curated import,
-Awesome source management, profile and credential configuration, and Fly app settings.
-Automated checks, browser validation, and real Test / Production operator acceptance were completed
-on 2026-08-24.
+Awesome source management, profile and credential configuration, Fly app settings, and a local
+data platform backed by a PostgreSQL job catalog and fixed Trainer actions. Real ADC, live download
+status, dry run, zero-scan query, and browser validation passed on 2026-08-27.
 
 ![Starcat Admin Console overview](./docs/design/overview.png)
 
@@ -110,6 +112,7 @@ pnpm dev
 Open `http://127.0.0.1:5173`. Vite proxies `/api` to the local BFF on
 `http://127.0.0.1:8787`. Configuration is stored under
 `~/.config/starcat-admin-console` by default; secret values are kept only in the BFF secrets file.
+Both development and production commands load the Git-ignored `.env.local` when it exists.
 
 Build and run the production-local bundle:
 
@@ -128,8 +131,21 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-Copy `.env.example` only when runtime path overrides are needed. No remote deployment target is
-part of phase one.
+Copy `.env.example` only when runtime path overrides are needed. To enable the data platform, follow
+the Chinese [local data-platform guide](./docs/数据平台本地使用指南.md) for PostgreSQL, Trainer, and
+GCP ADC setup. No remote deployment target is part of phase one.
+
+## Local data platform
+
+**Data platform → BigQuery operations** is isolated from the Test / Production business-service
+switch. It shows monthly quota and download progress, invokes only the fixed WatchEvent / PushEvent
+`start`, `stop`, and `restart` actions, provides mandatory dry-run-gated SQL exploration, and records
+redacted job metadata in PostgreSQL.
+
+SQL Lab accepts one read-only `SELECT` or `WITH ... SELECT` against `githubarchive`, with a 10 GiB
+per-query ceiling and a 200-row / 2 MiB result cap. SQL exists only in browser/BFF memory and a
+mode-`0600` temporary file. Query rows remain in BFF memory for ten minutes and are not stored in
+the PostgreSQL catalog, URLs, or browser storage.
 
 ## Configuration
 

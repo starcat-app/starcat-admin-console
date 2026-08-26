@@ -7,6 +7,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Local BigQuery operations workspace with monthly quota, WatchEvent / PushEvent download status,
+  guarded SQL Lab results, and PostgreSQL-backed job audit metadata.
+- Fixed Trainer actions for download lifecycle control and mandatory dry-run-bound read-only queries.
+
+### Security
+
+- SQL Lab restricts queries to one read-only `githubarchive` statement with a 10 GiB billing cap
+  and a 200-row / 2 MiB result boundary; SQL and rows are not persisted in the job catalog.
+
 ## [0.1.0] - 2026-08-24
 
 ### Added

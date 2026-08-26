@@ -75,15 +75,16 @@ brew install --cask starcat
 - 通过 Agent 分析粘贴文本，并联网与访问 GitHub 核验后导入精选项目；
 - 管理 Discover 暴露的 Awesome **来源**，不维护内置 README 内容；
 - 在高级设置中管理 Fly 环境变量与 Secrets。
+- 在隔离的本机数据平台区查看 BigQuery 月度额度、管理 WatchEvent / PushEvent 下载任务，并通过受控 SQL Lab 验证 `githubarchive` 数据。
 
 完整边界、架构、阶段和验收标准见[落地方案](./docs/落地方案.md)。
 
 ## 当前状态
 
 第一阶段本地控制台已经可以运行，现已包含 React/shadcn 工作区、明确的测试/生产环境路由、
-白名单化服务统计与运维动作、Agent 辅助精选导入、Awesome 来源管理、连接与密钥配置，以及
-Fly 应用设置。
-自动化检查、浏览器验证与真实测试/生产环境人工验收已于 2026-08-24 完成。
+白名单化服务统计与运维动作、Agent 辅助精选导入、Awesome 来源管理、连接与密钥配置、
+Fly 应用设置，以及由 PostgreSQL Catalog 和 Trainer 固定动作驱动的本机数据平台。
+数据平台的真实 ADC、下载状态、dry run、零扫描查询和浏览器链路已于 2026-08-27 验证通过。
 
 ![Starcat Admin Console 总览](./docs/design/overview.png)
 
@@ -107,7 +108,8 @@ pnpm dev
 
 浏览器打开 `http://127.0.0.1:5173`。Vite 会把 `/api` 转发到
 `http://127.0.0.1:8787` 的本地 BFF。配置默认写入
-`~/.config/starcat-admin-console`；密钥原文只保存在 BFF 的 secrets 文件中。
+`~/.config/starcat-admin-console`；密钥原文只保存在 BFF 的 secrets 文件中。开发和生产启动
+命令都会在文件存在时自动读取被 Git 忽略的 `.env.local`。
 
 构建并运行本地生产包：
 
@@ -126,7 +128,24 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-仅在需要覆盖运行路径时复制 `.env.example`。第一阶段仍不包含远程部署目标。
+仅在需要覆盖运行路径时复制 `.env.example`。启用 BigQuery 数据平台时，按
+[数据平台本地使用指南](./docs/数据平台本地使用指南.md) 启动 PostgreSQL、配置 Trainer 与
+GCP ADC。第一阶段仍不包含远程部署目标。
+
+## 本机数据平台
+
+侧边栏 **Data platform → BigQuery operations** 是独立本机运维区，不受 Test / Production
+业务环境切换影响。当前支持：
+
+- 显示 BigQuery 月度免费额度、WatchEvent 与 PushEvent 分区进度；
+- 通过确认框触发下载脚本的 `start`、`stop`、`restart`，继续复用 screen、checkpoint、
+  外接磁盘保护和后台额度监控；
+- 在 SQL Lab 输入单条 `SELECT` / `WITH ... SELECT`，先 dry run，再以相同 SQL hash 和预算执行；
+- 展示最多 200 行、2 MiB 的临时结果，并在 PostgreSQL 中保留不含 SQL 正文的 Job 审计元数据。
+
+SQL Lab 首期只允许读取 `githubarchive` 公共数据集，单次查询预算上限为 10 GiB。SQL 只存在于
+浏览器内存、BFF 内存和执行期间的 `0600` 临时文件；结果仅在 BFF 内存保留 10 分钟，不写入
+PostgreSQL Catalog、URL 或浏览器存储。
 
 ## 配置说明
 

@@ -27,9 +27,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "concurrently -k -n web,bff -c blue,green \"vite --host 127.0.0.1\" \"tsx watch server/index.ts\"",
+    "dev": "concurrently -k -n web,bff -c blue,green \"vite --host 127.0.0.1\" \"node --env-file-if-exists=.env.local --import tsx --watch server/index.ts\"",
     "build": "tsc -b && vite build && tsc -p tsconfig.server.json",
-    "start": "node dist-server/server/index.js",
+    "start": "node --env-file-if-exists=.env.local dist-server/server/index.js",
     "data-platform:up": "docker compose up -d data-platform-postgres",
     "data-platform:down": "docker compose down",
     "typecheck": "tsc -b --pretty false",
