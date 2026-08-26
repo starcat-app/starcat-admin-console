@@ -55,6 +55,12 @@ describe("DataPlatformRuntime", () => {
 
     expect(statuses).toHaveLength(2);
     expect(statuses[0].event).toBe("WatchEvent");
+    expect(executor.requests[0]?.args).toEqual(["status", "--json"]);
+    expect(executor.requests[1]?.args).toEqual([
+      "status",
+      "--json",
+      "--skip-quota",
+    ]);
     expect(completed.state).toBe("succeeded");
     expect(executor.requests.at(-1)?.executable).toBe(
       "/private/trainer/scripts/download-watch-events.sh",

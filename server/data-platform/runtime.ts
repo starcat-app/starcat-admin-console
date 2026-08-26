@@ -23,6 +23,7 @@ import type {
 } from "./types.js";
 
 const TRANSIENT_RESULT_TTL_MS = 10 * 60 * 1_000;
+const DOWNLOAD_STATUS_TTL_MS = 30 * 1_000;
 const MAXIMUM_PROCESS_OUTPUT_BYTES = 3 * (1 << 20);
 
 export interface DataPlatformRuntimeConfig {
@@ -44,6 +45,11 @@ export class DataPlatformRuntime {
     string,
     Record<string, unknown>
   >();
+  private downloadSnapshot?: {
+    expiresAt: number;
+    statuses: DownloadStatus[];
+  };
+  private downloadRefresh?: Promise<DownloadStatus[]>;
   private initialized?: Promise<void>;
 
   constructor(
@@ -62,10 +68,17 @@ export class DataPlatformRuntime {
 
   async downloads() {
     await this.initialize();
-    const statuses = await Promise.all([
-      this.downloadStatus("watch-events"),
-      this.downloadStatus("push-events"),
-    ]);
+    if (this.downloadSnapshot && this.downloadSnapshot.expiresAt > Date.now()) {
+      return this.downloadSnapshot.statuses;
+    }
+    this.downloadRefresh ??= this.fetchDownloadStatuses().finally(() => {
+      this.downloadRefresh = undefined;
+    });
+    const statuses = await this.downloadRefresh;
+    this.downloadSnapshot = {
+      expiresAt: Date.now() + DOWNLOAD_STATUS_TTL_MS,
+      statuses,
+    };
     return statuses;
   }
 
@@ -88,6 +101,8 @@ export class DataPlatformRuntime {
           signal,
         );
         if (result.ok !== true) throw new ActionError("DOWNLOAD_ACTION_FAILED");
+        // 生命周期动作完成后立即失效快照，下一次读取应反映真实进程状态。
+        this.downloadSnapshot = undefined;
         return result;
       },
     });
@@ -156,12 +171,26 @@ export class DataPlatformRuntime {
     };
   }
 
+  private async fetchDownloadStatuses(): Promise<DownloadStatus[]> {
+    const [watch, push] = await Promise.all([
+      this.downloadStatus("watch-events", true),
+      this.downloadStatus("push-events", false),
+    ]);
+    // 两个任务共享同一 GCP Project 月度额度；只查询一次并复用，避免 UI 轮询放大
+    // INFORMATION_SCHEMA 查询次数。
+    return [
+      watch,
+      { ...push, quota: watch.quota, quota_error: watch.quota_error },
+    ];
+  }
+
   private async downloadStatus(
     event: DownloadEventId,
+    includeQuota: boolean,
   ): Promise<DownloadStatus> {
     return (await this.runJSON(
       downloadScript(this.config.trainerRoot, event),
-      ["status", "--json"],
+      ["status", "--json", ...(includeQuota ? [] : ["--skip-quota"])],
       45_000,
     )) as unknown as DownloadStatus;
   }
