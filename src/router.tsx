@@ -30,6 +30,11 @@ const ActivityPage = lazy(() =>
     default: module.ActivityPage,
   })),
 );
+const DataPlatformPage = lazy(() =>
+  import("@/pages/data-platform").then((module) => ({
+    default: module.DataPlatformPage,
+  })),
+);
 const ExplorerPage = lazy(() =>
   import("@/pages/explorer").then((module) => ({
     default: module.ExplorerPage,
@@ -84,6 +89,11 @@ const activityRoute = createRoute({
   path: "/activity",
   component: ActivityPage,
 });
+const dataPlatformRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/data-platform",
+  component: DataPlatformPage,
+});
 const explorerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/explorer",
@@ -111,6 +121,7 @@ const routeTree = rootRoute.addChildren([
   importsRoute,
   awesomeRoute,
   activityRoute,
+  dataPlatformRoute,
   explorerRoute,
   profilesRoute,
   agentRoute,

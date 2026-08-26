@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Database,
   Globe2,
+  HardDrive,
   LayoutDashboard,
   Menu,
   Monitor,
@@ -62,17 +63,22 @@ const toolNavigation = [
   { to: "/settings/fly", label: "Fly.io", icon: Rocket },
 ] as const;
 
+const dataPlatformNavigation = [
+  { to: "/data-platform", label: "BigQuery operations", icon: HardDrive },
+] as const;
+
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { environment, setEnvironment } = useConsole();
   const path = useRouterState({ select: (state) => state.location.pathname });
   const isProduction = environment === "production";
+  const isDataPlatform = path.startsWith("/data-platform");
 
   return (
     <div
       className={cn(
         "min-h-screen bg-background",
-        isProduction && "environment-production",
+        isProduction && !isDataPlatform && "environment-production",
       )}
     >
       <div className="flex min-h-screen">
@@ -84,7 +90,9 @@ export function AppShell() {
           <header
             className={cn(
               "sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:px-6",
-              isProduction && "border-t-2 border-t-amber-500",
+              isProduction &&
+                !isDataPlatform &&
+                "border-t-2 border-t-amber-500",
             )}
           >
             <div className="flex min-w-0 items-center gap-3">
@@ -115,53 +123,61 @@ export function AppShell() {
 
             <div className="flex items-center gap-3">
               <ThemeMenu />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className={cn(
-                      "flex items-center gap-2 rounded-md border px-2.5 py-1.5",
-                      isProduction
-                        ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/12 dark:text-amber-100"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-100",
-                    )}
-                  >
-                    <span
+              {isDataPlatform ? (
+                <Badge variant="outline" className="gap-1.5 font-mono text-xs">
+                  <HardDrive className="size-3" /> Local data platform
+                </Badge>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
                       className={cn(
-                        "size-2 rounded-full",
-                        isProduction ? "bg-amber-500" : "bg-emerald-500",
+                        "flex items-center gap-2 rounded-md border px-2.5 py-1.5",
+                        isProduction
+                          ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/12 dark:text-amber-100"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-100",
                       )}
-                    />
-                    <span className="hidden text-xs font-semibold uppercase tracking-[0.12em] sm:inline">
-                      {isProduction ? "Production" : "Test"}
-                    </span>
-                    <Switch
-                      aria-label="Switch environment"
-                      checked={isProduction}
-                      onCheckedChange={(checked) =>
-                        setEnvironment(checked ? "production" : "test")
-                      }
-                      className="data-[state=checked]:bg-amber-500 data-[state=unchecked]:bg-emerald-600"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  所有统计和操作将立即切换到该环境
-                </TooltipContent>
-              </Tooltip>
-              <Button
-                variant="outline"
-                size="sm"
-                asChild
-                className="hidden sm:inline-flex"
-              >
-                <Link to="/settings/profiles">
-                  <Settings2 /> Configure
-                </Link>
-              </Button>
+                    >
+                      <span
+                        className={cn(
+                          "size-2 rounded-full",
+                          isProduction ? "bg-amber-500" : "bg-emerald-500",
+                        )}
+                      />
+                      <span className="hidden text-xs font-semibold uppercase tracking-[0.12em] sm:inline">
+                        {isProduction ? "Production" : "Test"}
+                      </span>
+                      <Switch
+                        aria-label="Switch environment"
+                        checked={isProduction}
+                        onCheckedChange={(checked) =>
+                          setEnvironment(checked ? "production" : "test")
+                        }
+                        className="data-[state=checked]:bg-amber-500 data-[state=unchecked]:bg-emerald-600"
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    所有统计和操作将立即切换到该环境
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {!isDataPlatform ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="hidden sm:inline-flex"
+                >
+                  <Link to="/settings/profiles">
+                    <Settings2 /> Configure
+                  </Link>
+                </Button>
+              ) : null}
             </div>
           </header>
 
-          {isProduction && (
+          {isProduction && !isDataPlatform && (
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
               Production environment ·
               写操作会直接影响线上数据，请核对动作与目标服务。
@@ -269,6 +285,12 @@ function Sidebar({
         <NavGroup
           label="Workspace"
           items={primaryNavigation}
+          path={path}
+          onNavigate={onNavigate}
+        />
+        <NavGroup
+          label="Data platform"
+          items={dataPlatformNavigation}
           path={path}
           onNavigate={onNavigate}
         />

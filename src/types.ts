@@ -148,3 +148,104 @@ export interface ActivityEntry {
   detail: string;
   outcome: "success" | "failed" | "running";
 }
+
+export type DataPlatformJobState =
+  | "queued"
+  | "running"
+  | "cancel_requested"
+  | "cancelled"
+  | "succeeded"
+  | "failed"
+  | "interrupted";
+
+export interface DataPlatformConfig {
+  available: boolean;
+  billingProject?: string;
+  location?: string;
+  maximumBytesBilled?: number;
+  maximumResultRows?: number;
+  maximumResultBytes?: number;
+}
+
+export interface BigQueryQuota {
+  query_jobs: number;
+  billed_bytes: number;
+  processed_bytes: number;
+  free_tier_bytes: number;
+  remaining_bytes: number;
+  used_percent: number;
+  warning_percent: number;
+  stop_percent: number;
+  status: string;
+  should_stop: boolean;
+}
+
+export interface BigQueryDownloadStatus {
+  event: "WatchEvent" | "PushEvent";
+  state: "running" | "stopped";
+  start_date: string;
+  end_date: string;
+  total_partitions: number;
+  completed_partitions: number;
+  last_partition: string | null;
+  estimated_total_bytes: number;
+  checkpoint_error: string | null;
+  quota: BigQueryQuota | null;
+  quota_error: string | null;
+}
+
+export interface DataPlatformJob {
+  jobId: string;
+  actionId: string;
+  state: DataPlatformJobState;
+  stage: string;
+  inputHash: string;
+  sqlHash?: string;
+  bigQueryJobId?: string;
+  estimatedBytes?: number;
+  processedBytes?: number;
+  billedBytes?: number;
+  errorCode?: string;
+  errorSummary?: string;
+  createdAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+  resultAvailable: boolean;
+}
+
+export interface DataPlatformOverview {
+  config: Omit<DataPlatformConfig, "available">;
+  downloads: BigQueryDownloadStatus[];
+  jobs: DataPlatformJob[];
+}
+
+export interface BigQueryField {
+  name: string;
+  field_type: string;
+  mode: string;
+}
+
+export interface SqlLabDryRunResult {
+  operation: "dry_run";
+  sql_sha256: string;
+  statement_type: string;
+  estimated_bytes: number;
+  maximum_bytes_billed: number;
+  fields: BigQueryField[];
+  referenced_tables: string[];
+}
+
+export interface SqlLabQueryResult {
+  operation: "query";
+  sql_sha256: string;
+  job_id: string;
+  estimated_bytes: number;
+  processed_bytes: number;
+  billed_bytes: number;
+  maximum_bytes_billed: number;
+  total_rows: number;
+  returned_rows: number;
+  truncated: boolean;
+  fields: BigQueryField[];
+  rows: Array<Record<string, unknown>>;
+}
