@@ -12,16 +12,23 @@ import { secureHeaders } from "hono/secure-headers";
 import { ZodError } from "zod";
 
 import { ConfigStore } from "./config-store.js";
+import { PostgresDataPlatformCatalog } from "./data-platform/catalog.js";
+import {
+  DataPlatformRuntime,
+  dataPlatformConfigFromEnvironment,
+} from "./data-platform/runtime.js";
 import { createAwesomeRoutes } from "./routes-awesome.js";
 import { createConfigRoutes } from "./routes-config.js";
 import { createFlyRoutes } from "./routes-fly.js";
 import { createImportRoutes } from "./routes-imports.js";
+import { createDataPlatformRoutes } from "./routes-data-platform.js";
 import { createServicesRoutes } from "./routes-services.js";
 import { UpstreamError } from "./upstream.js";
 
 const app = new Hono();
 const store = new ConfigStore();
 const port = parsePort(process.env.PORT);
+const dataPlatformRuntime = createDataPlatformRuntime();
 
 app.use("*", secureHeaders());
 app.use("/api/*", bodyLimit({ maxSize: 256 * 1024 }));
@@ -45,6 +52,7 @@ app.route("/api/services", createServicesRoutes(store));
 app.route("/api/awesome", createAwesomeRoutes(store));
 app.route("/api/imports", createImportRoutes(store));
 app.route("/api/fly", createFlyRoutes(store));
+app.route("/api/data-platform", createDataPlatformRoutes(dataPlatformRuntime));
 
 app.use("/*", serveStatic({ root: "./dist" }));
 app.get("*", serveStatic({ path: "./dist/index.html" }));
@@ -118,3 +126,17 @@ function safeError(error: unknown) {
 }
 
 export { app, isLocalHost, isLocalOrigin };
+
+function createDataPlatformRuntime() {
+  const databaseURL = process.env.STARCAT_DATA_PLATFORM_DATABASE_URL?.trim();
+  if (!databaseURL) return undefined;
+  try {
+    return new DataPlatformRuntime(
+      new PostgresDataPlatformCatalog(databaseURL),
+      dataPlatformConfigFromEnvironment(),
+    );
+  } catch (error) {
+    console.warn("Starcat data platform disabled", safeError(error));
+    return undefined;
+  }
+}
