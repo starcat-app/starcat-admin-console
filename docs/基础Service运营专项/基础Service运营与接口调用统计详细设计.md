@@ -64,10 +64,10 @@ PostgreSQL、VictoriaMetrics 或 ClickHouse 时保持 REST 和前端契约不变
 |---|---:|---|
 | minute | 7 天 | 1 小时与 24 小时精细曲线 |
 | hour | 180 天 | 周、月、半年趋势 |
-| day | 长期 | 年度与长期运营趋势 |
+| day | 长期预留 | 多实例/年度查询扩展；当前 REST 暂不读取 |
 
-进程每 30 秒批量写入，异常退出最多损失当前刷新周期。后台维护任务把过期 minute/hour 数据滚动聚合
-到更粗粒度；查询接口限制时间范围和最大点数，防止控制台生成无界扫描。
+进程每 30 秒批量写入，并在同一批次同步生成 minute/hour/day 三套可合并桶；维护任务只清理过期
+minute/hour 数据，不回读原始请求。当前查询范围限制为 1h/24h/7d/30d/180d，单序列最多 500 点。
 
 ### 3.3 REST 契约
 
@@ -83,27 +83,24 @@ GET /internal/metrics/status-codes?range=24h
 Admin Console BFF 提供聚合接口：
 
 ```http
-GET /api/observability/summary
-GET /api/observability/timeseries
-GET /api/observability/services
-GET /api/observability/routes
+GET /api/services/observability?environment=test&range=24h&metric=requests
+GET /api/services/{service}/resources/{resource}?environment=test
 ```
 
-BFF 只接受枚举化 Service、Metric、Range、Route 和 Method；不接受上游 URL 或 Header。
+BFF 只接受枚举化 Service、Metric、Range 与注册表中的资源 ID；不接受上游 URL、Method 或 Header。
 
 ## 4. 控制台信息架构
 
 新增一级页面 **API Monitoring**：
 
 - 总调用量、错误率、P95 延迟、在线服务数；
-- 调用量与错误率折线图；
-- P50/P95/P99 延迟折线图；
-- 六服务调用量堆叠图；
-- 状态码分布、热门接口、错误接口和慢接口排行；
-- 1h/24h/7d/30d/180d、Service、Route、Method、流量分类筛选与自动刷新。
+- 请求、错误、错误率和平均/P95/P99 延迟折线图；
+- 六服务叠加曲线；
+- 调用量、错误量与 P95 的接口排行；
+- 1h/24h/7d/30d/180d、Service 与 Metric 筛选，以及 60 秒自动刷新。
 
-每个 Service 详情页包含：Overview、Data、Diagnostics、Operations、API 五类能力。图表使用 shadcn Chart
-封装的 Recharts，复用现有主题 token；页面只渲染 BFF 归一化后的 DTO。
+每个 Service 详情在同一页面按 Statistics、Data resources、Registered actions 分区，避免为少量数据
+拆出空页面。图表直接使用 Recharts 并复用现有主题 token；页面只渲染 BFF 归一化后的 DTO。
 
 ## 5. 安全与扩展边界
 

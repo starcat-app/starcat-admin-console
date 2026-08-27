@@ -69,6 +69,7 @@ brew install --cask starcat
 第一阶段只在管理员本机运行，职责包括：
 
 - 展示 Starcat 配套 API 的健康状态与数据统计；
+- 展示六服务调用量、错误率、延迟曲线与路由排行；
 - 在页面上明确切换测试环境和生产环境；
 - 分别配置各本地服务 URL、生产聚合网关与服务密钥；
 - 执行刷新缓存、清空缓存、数据任务等明确建模的操作；
@@ -83,7 +84,7 @@ brew install --cask starcat
 
 第一阶段本地控制台已经可以运行，现已包含 React/shadcn 工作区、明确的测试/生产环境路由、
 白名单化服务统计与运维动作、Agent 辅助精选导入、Awesome 来源管理、连接与密钥配置、
-Fly 应用设置，以及由 PostgreSQL Catalog 和 Trainer 固定动作驱动的本机数据平台。
+Fly 应用设置、六服务只读数据视图与 API Monitoring，以及由 PostgreSQL Catalog 和 Trainer 固定动作驱动的本机数据平台。
 数据平台的真实 ADC、下载状态、dry run、零扫描查询和浏览器链路已于 2026-08-27 验证通过。
 
 ![Starcat Admin Console 总览](./docs/design/overview.png)

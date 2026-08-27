@@ -69,6 +69,7 @@ Curated Publisher currently embedded in the Starcat macOS app.
 The first phase runs only on the operator's machine. Its responsibilities are:
 
 - service health and data statistics for Starcat support APIs;
+- request volume, error rate, latency timeseries, and route rankings for all six services;
 - a visible Test / Production environment switch;
 - per-service local URLs and production gateway routing;
 - cache refresh, cache clearing, data jobs, and other typed operations;
@@ -85,8 +86,8 @@ acceptance criteria.
 
 The phase-one local console is runnable. It includes the React/shadcn workspace shell, visible
 Test / Production routing, typed service statistics and operations, Agent-assisted curated import,
-Awesome source management, profile and credential configuration, Fly app settings, and a local
-data platform backed by a PostgreSQL job catalog and fixed Trainer actions. Real ADC, live download
+Awesome source management, profile and credential configuration, Fly app settings, fixed service
+data views, API Monitoring, and a local data platform backed by a PostgreSQL job catalog and fixed Trainer actions. Real ADC, live download
 status, dry run, zero-scan query, and browser validation passed on 2026-08-27. The catalog also has
 versioned Dataset, Partition, Watermark, Storage, Artifact, and Deployment tables; existing
 WatchEvent / PushEvent Raw files are registered in place through fixed read-only Trainer actions.

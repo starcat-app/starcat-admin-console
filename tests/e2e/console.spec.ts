@@ -27,6 +27,7 @@ const services = [
         ]
       : [],
   actions: [],
+  resources: [],
   credentialKinds:
     id === "weekly" || id === "discovery" ? ["apiKey", "adminKey"] : ["apiKey"],
   credentials: {
@@ -77,6 +78,51 @@ test.beforeEach(async ({ page }) => {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ data: services }),
+    }),
+  );
+  await page.route("**/api/services/observability?environment=*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: services.map((service, index) => ({
+          id: service.id,
+          label: service.label,
+          ok: true,
+          summary: {
+            service: service.id,
+            request_count: 100 + index,
+            error_count: index,
+            error_rate: index / (100 + index),
+            average_ms: 12 + index,
+            p95_ms: 25 + index,
+            p99_ms: 50 + index,
+            response_bytes: 2048,
+          },
+          timeseries: {
+            service: service.id,
+            metric: "requests",
+            interval: "5m0s",
+            points: [
+              { timestamp: "2026-08-27T00:00:00Z", value: 40 + index },
+              { timestamp: "2026-08-27T00:05:00Z", value: 60 + index },
+            ],
+          },
+          routes: [
+            {
+              method: "GET",
+              route: "/api/v1/ping",
+              request_count: 100 + index,
+              error_count: index,
+              error_rate: 0,
+              average_ms: 4,
+              p95_ms: 10,
+              maximum_ms: 12,
+            },
+          ],
+          statusCodes: [{ status_class: "2xx", request_count: 100 }],
+        })),
+      }),
     }),
   );
   await page.route("**/api/config", (route) =>
@@ -148,6 +194,21 @@ test("switches environment and navigates the console shell", async ({
     page.getByRole("heading", { name: "Curated imports" }),
   ).toBeVisible();
   await expect(page.getByText("Agent-assisted workflow")).toBeVisible();
+});
+
+test("shows API monitoring curves and route rankings", async ({ page }) => {
+  await page.goto("/monitoring");
+  await expect(
+    page.getByRole("heading", { name: "API Monitoring" }),
+  ).toBeVisible();
+  await expect(page.getByText("Traffic timeseries")).toBeVisible();
+  await expect(page.getByText("Route ranking")).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "/api/v1/ping" }).first(),
+  ).toBeVisible();
+  await page.getByRole("combobox").first().click();
+  await page.getByRole("option", { name: "Recommend" }).click();
+  await expect(page.getByRole("cell", { name: "Recommend" })).toBeVisible();
 });
 
 test("opens navigation on a narrow viewport", async ({ page }) => {
