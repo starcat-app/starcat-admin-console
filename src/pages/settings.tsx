@@ -2,11 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bot,
   Check,
+  CircleCheck,
+  CircleX,
   EyeOff,
+  FlaskConical,
   KeyRound,
+  LoaderCircle,
   LockKeyhole,
+  RefreshCw,
   Save,
   ServerCog,
+  Terminal,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -29,10 +35,23 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useConsole } from "@/console-context";
 import { api, jsonBody } from "@/lib/api";
-import type { PublicConfig, SecretKind, ServiceId } from "@/types";
+import type {
+  AgentRuntimeId,
+  LocalAgentStatus,
+  PublicConfig,
+  SecretKind,
+  ServiceId,
+} from "@/types";
 import { serviceIds } from "@/types";
 
 const adminServiceIds = ["weekly", "discovery"] as const satisfies ServiceId[];
@@ -404,11 +423,19 @@ export function AgentSettingsPage() {
   const setAgent = (next: PublicConfig["agent"]) => setAgentDraft(next);
   const [agentKey, setAgentKey] = useState("");
   const [githubToken, setGithubToken] = useState("");
+  const runtimes = useQuery({
+    queryKey: ["agent-runtimes"],
+    queryFn: () => api<LocalAgentStatus[]>("/api/config/agent/runtimes"),
+  });
+  const runtimeStatus = runtimes.data?.find(
+    (item) => item.runtime === agent?.runtime,
+  );
   const saveAgent = useMutation({
     mutationFn: () =>
       api("/api/config/agent", { method: "PUT", ...jsonBody(agent) }),
     onSuccess: () => {
       toast.success("Agent 配置已保存");
+      setAgentDraft({});
       void client.invalidateQueries({ queryKey: ["config"] });
     },
     onError: (error) => toast.error(error.message),
@@ -433,12 +460,26 @@ export function AgentSettingsPage() {
     },
     onError: (error) => toast.error(error.message),
   });
+  const testAgent = useMutation({
+    mutationFn: (runtime: "codex" | "claude") =>
+      api<{ runtime: string; ok: true }>("/api/config/agent/test", {
+        method: "POST",
+        ...jsonBody({ runtime }),
+      }),
+    onSuccess: (_, runtime) =>
+      toast.success(
+        `${runtime === "codex" ? "Codex CLI" : "Claude Code"} 连接正常`,
+      ),
+    onError: (error) => toast.error(error.message),
+  });
+  const isLocalRuntime =
+    agent?.runtime === "codex" || agent?.runtime === "claude";
   return (
     <div>
       <PageHeader
-        eyebrow="Agent provider"
+        eyebrow="Agent runtime"
         title="Agent & verification"
-        description="配置 OpenAI-compatible 模型服务与 GitHub 网络核验凭证。识别阶段永远拿不到 Weekly Admin Key。"
+        description="优先复用本机已登录的 Codex CLI 或 Claude Code；Agent 负责联网甄别，GitHub API 负责最终核验。"
         actions={
           <Button
             disabled={!agent || saveAgent.isPending}
@@ -455,55 +496,153 @@ export function AgentSettingsPage() {
               <Bot className="size-5" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold">Model endpoint</h2>
+              <h2 className="text-sm font-semibold">Agent runtime</h2>
               <p className="text-xs text-muted-foreground">
-                用于拆分线索与基于已核验候选做判断。
+                本机 CLI 不需要在 Console 中重复填写模型服务商。
               </p>
             </div>
           </div>
           {agent && (
             <FieldGroup className="mt-6">
               <Field>
-                <FieldLabel htmlFor="agent-url">Base URL</FieldLabel>
-                <Input
-                  id="agent-url"
-                  value={agent.baseURL}
-                  onChange={(e) =>
-                    setAgent({ ...agent, baseURL: e.target.value })
+                <FieldLabel htmlFor="agent-runtime">Runtime</FieldLabel>
+                <Select
+                  value={agent.runtime}
+                  onValueChange={(value) =>
+                    setAgent({ ...agent, runtime: value as AgentRuntimeId })
                   }
-                  placeholder="https://api.openai.com/v1"
-                />
+                >
+                  <SelectTrigger id="agent-runtime" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="codex">Codex CLI</SelectItem>
+                    <SelectItem value="claude">Claude Code</SelectItem>
+                    <SelectItem value="openai-compatible">
+                      OpenAI-compatible（兼容模式）
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
+                  {isLocalRuntime
+                    ? "复用 CLI 已保存的登录状态；识别运行使用独立只读配置。"
+                    : "保留原有 Chat Completions 接口作为兼容模式。"}
+                </FieldDescription>
               </Field>
-              <Field>
-                <FieldLabel htmlFor="agent-model">Model</FieldLabel>
-                <Input
-                  id="agent-model"
-                  value={agent.model}
-                  onChange={(e) =>
-                    setAgent({ ...agent, model: e.target.value })
-                  }
-                  placeholder="gpt-5-mini"
-                />
-              </Field>
+              {isLocalRuntime ? (
+                <div className="rounded-md border bg-muted/30 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="grid size-9 shrink-0 place-items-center rounded-md border bg-background">
+                      <Terminal className="size-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium">
+                          {agent.runtime === "codex"
+                            ? "Codex CLI"
+                            : "Claude Code"}
+                        </span>
+                        {runtimes.isLoading ? (
+                          <Badge variant="outline">
+                            <LoaderCircle className="animate-spin" /> 检测中
+                          </Badge>
+                        ) : runtimeStatus?.available ? (
+                          <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-300">
+                            <CircleCheck /> 已安装
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive">
+                            <CircleX /> 不可用
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                        {runtimeStatus?.command ?? agent.runtime}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {runtimeStatus?.version ??
+                          runtimeStatus?.error ??
+                          "等待检测本机 CLI"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={runtimes.isFetching}
+                      onClick={() => void runtimes.refetch()}
+                    >
+                      <RefreshCw
+                        className={runtimes.isFetching ? "animate-spin" : ""}
+                      />
+                      重新检测
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={
+                        !runtimeStatus?.available || testAgent.isPending
+                      }
+                      onClick={() =>
+                        testAgent.mutate(agent.runtime as "codex" | "claude")
+                      }
+                    >
+                      {testAgent.isPending ? (
+                        <LoaderCircle className="animate-spin" />
+                      ) : (
+                        <FlaskConical />
+                      )}
+                      测试 Agent
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="agent-url">Base URL</FieldLabel>
+                    <Input
+                      id="agent-url"
+                      value={agent.baseURL}
+                      onChange={(e) =>
+                        setAgent({ ...agent, baseURL: e.target.value })
+                      }
+                      placeholder="https://api.openai.com/v1"
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="agent-model">Model</FieldLabel>
+                    <Input
+                      id="agent-model"
+                      value={agent.model}
+                      onChange={(e) =>
+                        setAgent({ ...agent, model: e.target.value })
+                      }
+                      placeholder="gpt-5-mini"
+                    />
+                  </Field>
+                </>
+              )}
             </FieldGroup>
           )}
         </section>
         <section className="rounded-lg border bg-card p-5">
           <h2 className="text-sm font-semibold">Server-side credentials</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            新值不会回显。留空并保存会删除现有凭证。
+            GitHub Token 用于提高 API 核验限额；模型密钥仅供兼容模式使用。
           </p>
           <FieldGroup className="mt-6">
-            <SecretField
-              id="agent-key"
-              label="Agent API key"
-              state={query.data?.secrets.agentApiKey.configured}
-              value={agentKey}
-              setValue={setAgentKey}
-              onSave={() =>
-                saveSecret.mutate({ kind: "agentApiKey", value: agentKey })
-              }
-            />
+            {!isLocalRuntime && (
+              <SecretField
+                id="agent-key"
+                label="Agent API key"
+                state={query.data?.secrets.agentApiKey.configured}
+                value={agentKey}
+                setValue={setAgentKey}
+                onSave={() =>
+                  saveSecret.mutate({ kind: "agentApiKey", value: agentKey })
+                }
+              />
+            )}
             <SecretField
               id="github-token"
               label="GitHub token"
@@ -520,11 +659,11 @@ export function AgentSettingsPage() {
       <div className="mt-6 rounded-lg border bg-muted/25 p-5">
         <h3 className="text-sm font-semibold">Security boundary</h3>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <Boundary icon={Bot} title="Agent" text="只看线索与核验候选" />
+          <Boundary icon={Bot} title="Agent" text="只看原始线索并联网甄别" />
           <Boundary
             icon={ServerCog}
             title="BFF"
-            text="持有模型与 GitHub 凭证"
+            text="复核 GitHub 仓库并隔离服务密钥"
           />
           <Boundary
             icon={KeyRound}

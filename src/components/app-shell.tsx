@@ -4,9 +4,11 @@ import {
   Bot,
   Braces,
   Cat,
+  ChartNoAxesCombined,
   ChevronDown,
   Database,
   Globe2,
+  HardDrive,
   LayoutDashboard,
   Menu,
   Monitor,
@@ -50,6 +52,7 @@ import { cn } from "@/lib/utils";
 const primaryNavigation = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/services", label: "Services", icon: ServerCog },
+  { to: "/monitoring", label: "API monitoring", icon: ChartNoAxesCombined },
   { to: "/imports", label: "Curated imports", icon: Sparkles },
   { to: "/awesome", label: "Awesome sources", icon: Database },
   { to: "/activity", label: "Jobs & activity", icon: Activity },
@@ -62,17 +65,25 @@ const toolNavigation = [
   { to: "/settings/fly", label: "Fly.io", icon: Rocket },
 ] as const;
 
+const dataPlatformNavigation = [
+  { to: "/data-platform", label: "BigQuery operations", icon: HardDrive },
+  { to: "/data-platform/datasets", label: "Datasets", icon: Database },
+  { to: "/data-platform/partitions", label: "Partitions", icon: Activity },
+  { to: "/data-platform/storage", label: "Storage", icon: ServerCog },
+] as const;
+
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { environment, setEnvironment } = useConsole();
   const path = useRouterState({ select: (state) => state.location.pathname });
   const isProduction = environment === "production";
+  const isDataPlatform = path.startsWith("/data-platform");
 
   return (
     <div
       className={cn(
         "min-h-screen bg-background",
-        isProduction && "environment-production",
+        isProduction && !isDataPlatform && "environment-production",
       )}
     >
       <div className="flex min-h-screen">
@@ -84,7 +95,9 @@ export function AppShell() {
           <header
             className={cn(
               "sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:px-6",
-              isProduction && "border-t-2 border-t-amber-500",
+              isProduction &&
+                !isDataPlatform &&
+                "border-t-2 border-t-amber-500",
             )}
           >
             <div className="flex min-w-0 items-center gap-3">
@@ -115,53 +128,61 @@ export function AppShell() {
 
             <div className="flex items-center gap-3">
               <ThemeMenu />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className={cn(
-                      "flex items-center gap-2 rounded-md border px-2.5 py-1.5",
-                      isProduction
-                        ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/12 dark:text-amber-100"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-100",
-                    )}
-                  >
-                    <span
+              {isDataPlatform ? (
+                <Badge variant="outline" className="gap-1.5 font-mono text-xs">
+                  <HardDrive className="size-3" /> Local data platform
+                </Badge>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
                       className={cn(
-                        "size-2 rounded-full",
-                        isProduction ? "bg-amber-500" : "bg-emerald-500",
+                        "flex items-center gap-2 rounded-md border px-2.5 py-1.5",
+                        isProduction
+                          ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/12 dark:text-amber-100"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-500/10 dark:text-emerald-100",
                       )}
-                    />
-                    <span className="hidden text-xs font-semibold uppercase tracking-[0.12em] sm:inline">
-                      {isProduction ? "Production" : "Test"}
-                    </span>
-                    <Switch
-                      aria-label="Switch environment"
-                      checked={isProduction}
-                      onCheckedChange={(checked) =>
-                        setEnvironment(checked ? "production" : "test")
-                      }
-                      className="data-[state=checked]:bg-amber-500 data-[state=unchecked]:bg-emerald-600"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  所有统计和操作将立即切换到该环境
-                </TooltipContent>
-              </Tooltip>
-              <Button
-                variant="outline"
-                size="sm"
-                asChild
-                className="hidden sm:inline-flex"
-              >
-                <Link to="/settings/profiles">
-                  <Settings2 /> Configure
-                </Link>
-              </Button>
+                    >
+                      <span
+                        className={cn(
+                          "size-2 rounded-full",
+                          isProduction ? "bg-amber-500" : "bg-emerald-500",
+                        )}
+                      />
+                      <span className="hidden text-xs font-semibold uppercase tracking-[0.12em] sm:inline">
+                        {isProduction ? "Production" : "Test"}
+                      </span>
+                      <Switch
+                        aria-label="Switch environment"
+                        checked={isProduction}
+                        onCheckedChange={(checked) =>
+                          setEnvironment(checked ? "production" : "test")
+                        }
+                        className="data-[state=checked]:bg-amber-500 data-[state=unchecked]:bg-emerald-600"
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    所有统计和操作将立即切换到该环境
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {!isDataPlatform ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="hidden sm:inline-flex"
+                >
+                  <Link to="/settings/profiles">
+                    <Settings2 /> Configure
+                  </Link>
+                </Button>
+              ) : null}
             </div>
           </header>
 
-          {isProduction && (
+          {isProduction && !isDataPlatform && (
             <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
               Production environment ·
               写操作会直接影响线上数据，请核对动作与目标服务。
@@ -273,6 +294,12 @@ function Sidebar({
           onNavigate={onNavigate}
         />
         <NavGroup
+          label="Data platform"
+          items={dataPlatformNavigation}
+          path={path}
+          onNavigate={onNavigate}
+        />
+        <NavGroup
           label="Tools & settings"
           items={toolNavigation}
           path={path}
@@ -322,7 +349,9 @@ function NavGroup({
       <div className="space-y-1">
         {items.map((item) => {
           const active =
-            item.to === "/" ? path === "/" : path.startsWith(item.to);
+            item.to === "/" || item.to === "/data-platform"
+              ? path === item.to
+              : path.startsWith(item.to);
           const Icon = item.icon;
           return (
             <Link

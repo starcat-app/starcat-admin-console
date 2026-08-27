@@ -33,5 +33,13 @@ Phase one is a local-only operator tool:
   idempotency key rather than creating a second operation.
 - Agent identification and publication are separate capabilities. The Agent must not receive the
   Weekly administration key and cannot publish without an explicit operator action.
+- The data-platform area must remain local and isolated from business-service profiles. It may
+  execute only registered Trainer actions; browser input cannot select an executable, script path,
+  arbitrary argument vector, billing project, or environment variable.
+- SQL Lab accepts one read-only statement against `githubarchive`, requires a successful dry run
+  bound to the SQL hash and budget, and enforces query and result limits in Trainer as well as the
+  BFF. SQL, rows, ADC, real data paths, and stderr must not enter the PostgreSQL job catalog.
+- SQL temporary files require owner-only permissions and unconditional cleanup after success,
+  failure, timeout, or cancellation. In-memory results expire after ten minutes.
 - Remote deployment, multi-user access, and Internet-facing authentication are phase-two concerns
   and are not supported by the local-only security model.

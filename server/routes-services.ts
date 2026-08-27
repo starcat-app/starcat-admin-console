@@ -7,6 +7,7 @@ import {
   pickValue,
   serviceRegistry,
   type ActionDescriptor,
+  type ResourceDescriptor,
   type ServiceDescriptor,
 } from "./service-registry.js";
 import { serviceIds, type EnvironmentId, type ServiceId } from "./types.js";
@@ -23,12 +24,39 @@ export function createServicesRoutes(store: ConfigStore) {
     return context.json({ data: services, meta: { environment } });
   });
 
+  app.get("/observability", async (context) => {
+    const environment = parseEnvironment(context.req.query("environment"));
+    const range = parseMetricsRange(context.req.query("range"));
+    const metric = parseMetric(context.req.query("metric"));
+    const services = await Promise.all(
+      serviceIds.map((service) =>
+        loadObservability(store, environment, service, range, metric),
+      ),
+    );
+    return context.json({
+      data: services,
+      meta: { environment, range, metric },
+    });
+  });
+
   app.get("/:service", async (context) => {
     const environment = parseEnvironment(context.req.query("environment"));
     const service = parseService(context.req.param("service"));
     return context.json({
       data: await loadService(store, environment, service),
     });
+  });
+
+  app.get("/:service/resources/:resource", async (context) => {
+    const environment = parseEnvironment(context.req.query("environment"));
+    const service = parseService(context.req.param("service"));
+    const resource = serviceRegistry[service].resources.find(
+      (candidate) => candidate.id === context.req.param("resource"),
+    );
+    if (!resource)
+      return context.json({ error: "resource is not registered" }, 404);
+    const result = await loadResource(store, environment, service, resource);
+    return context.json({ data: result }, result.ok ? 200 : 502);
   });
 
   app.post("/:service/actions/:action", async (context) => {
@@ -90,6 +118,9 @@ async function loadService(
         error: "API key not configured",
       };
 
+  // 多个统计卡片通常读取同一个聚合端点。单次页面刷新复用同一 Promise，
+  // 避免重复请求污染调用量统计，也降低六服务的 SQLite 聚合压力。
+  const statRequests = new Map<string, ReturnType<typeof attemptRequest>>();
   const stats = await Promise.all(
     descriptor.stats.map(async (stat) => {
       if (!secretState[stat.auth].configured) {
@@ -101,14 +132,20 @@ async function loadService(
           error: `${stat.auth} not configured`,
         };
       }
-      const result = await attemptRequest(() =>
-        requestUpstream(store, {
-          environment,
-          service,
-          path: stat.path,
-          auth: stat.auth,
-        }),
-      );
+      const requestKey = `${stat.auth}\u0000${stat.path}`;
+      let request = statRequests.get(requestKey);
+      if (!request) {
+        request = attemptRequest(() =>
+          requestUpstream(store, {
+            environment,
+            service,
+            path: stat.path,
+            auth: stat.auth,
+          }),
+        );
+        statRequests.set(requestKey, request);
+      }
+      const result = await request;
       return {
         id: stat.id,
         label: stat.label,
@@ -132,9 +169,122 @@ async function loadService(
     health,
     ping,
     stats,
+    resources: descriptor.resources,
     actions: descriptor.actions,
     credentialKinds: credentialKindsForService(service),
     credentials: secretState,
+  };
+}
+
+async function loadResource(
+  store: ConfigStore,
+  environment: EnvironmentId,
+  service: ServiceId,
+  resource: ResourceDescriptor,
+) {
+  const secretState = (await store.publicConfig()).secrets.profiles[
+    environment
+  ][service];
+  if (!secretState[resource.auth].configured) {
+    return {
+      ok: false,
+      status: 0,
+      durationMs: 0,
+      body: null,
+      error: `${resource.auth} not configured`,
+    };
+  }
+  const result = await attemptRequest(() =>
+    requestUpstream(store, {
+      environment,
+      service,
+      path: resource.path,
+      auth: resource.auth,
+    }),
+  );
+  return {
+    ...result,
+    resource: {
+      id: resource.id,
+      label: resource.label,
+      description: resource.description,
+    },
+  };
+}
+
+async function loadObservability(
+  store: ConfigStore,
+  environment: EnvironmentId,
+  service: ServiceId,
+  range: MetricsRange,
+  metric: MetricsMetric,
+) {
+  const descriptor = serviceRegistry[service];
+  const secretState = (await store.publicConfig()).secrets.profiles[
+    environment
+  ][service];
+  if (!secretState.apiKey.configured) {
+    return {
+      id: service,
+      label: descriptor.label,
+      ok: false,
+      error: "API key not configured",
+      summary: null,
+      timeseries: null,
+      routes: [],
+      statusCodes: [],
+    };
+  }
+  const encodedRange = encodeURIComponent(range);
+  const encodedMetric = encodeURIComponent(metric);
+  const [summary, timeseries, routes, statusCodes] = await Promise.all([
+    attemptRequest(() =>
+      requestUpstream(store, {
+        environment,
+        service,
+        path: `/internal/metrics/summary?range=${encodedRange}`,
+        auth: "apiKey",
+      }),
+    ),
+    attemptRequest(() =>
+      requestUpstream(store, {
+        environment,
+        service,
+        path: `/internal/metrics/timeseries?range=${encodedRange}&metric=${encodedMetric}`,
+        auth: "apiKey",
+      }),
+    ),
+    attemptRequest(() =>
+      requestUpstream(store, {
+        environment,
+        service,
+        path: `/internal/metrics/routes?range=${encodedRange}&limit=20&sort=requests`,
+        auth: "apiKey",
+      }),
+    ),
+    attemptRequest(() =>
+      requestUpstream(store, {
+        environment,
+        service,
+        path: `/internal/metrics/status-codes?range=${encodedRange}`,
+        auth: "apiKey",
+      }),
+    ),
+  ]);
+  const ok = summary.ok && timeseries.ok;
+  return {
+    id: service,
+    label: descriptor.label,
+    ok,
+    error: ok
+      ? undefined
+      : (summary.error ?? timeseries.error ?? "metrics unavailable"),
+    summary: summary.ok ? pickValue(summary.body, "data") : null,
+    timeseries: timeseries.ok ? pickValue(timeseries.body, "data") : null,
+    routes: routes.ok ? (pickValue(routes.body, "data") ?? []) : [],
+    statusCodes: statusCodes.ok
+      ? (pickValue(statusCodes.body, "data") ?? [])
+      : [],
   };
 }
 
@@ -198,6 +348,33 @@ function parseService(value: string): ServiceId {
   if ((serviceIds as readonly string[]).includes(value))
     return value as ServiceId;
   throw new Error(`unknown service: ${value}`);
+}
+
+const metricsRanges = ["1h", "24h", "7d", "30d", "180d"] as const;
+type MetricsRange = (typeof metricsRanges)[number];
+const metricsMetrics = [
+  "requests",
+  "errors",
+  "error_rate",
+  "latency_average",
+  "latency_p50",
+  "latency_p95",
+  "latency_p99",
+] as const;
+type MetricsMetric = (typeof metricsMetrics)[number];
+
+function parseMetricsRange(value?: string): MetricsRange {
+  const candidate = value ?? "24h";
+  if ((metricsRanges as readonly string[]).includes(candidate))
+    return candidate as MetricsRange;
+  throw new Error("range must be 1h, 24h, 7d, 30d, or 180d");
+}
+
+function parseMetric(value?: string): MetricsMetric {
+  const candidate = value ?? "requests";
+  if ((metricsMetrics as readonly string[]).includes(candidate))
+    return candidate as MetricsMetric;
+  throw new Error("unsupported metrics field");
 }
 
 async function readOptionalBody(request: Request): Promise<unknown> {

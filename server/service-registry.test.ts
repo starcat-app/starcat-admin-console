@@ -67,4 +67,14 @@ describe("service registry", () => {
       serviceRegistry.wiki.actions.every((action) => action.auth === "apiKey"),
     ).toBe(true);
   });
+
+  it("registers bounded read-only data resources for every service", () => {
+    for (const descriptor of Object.values(serviceRegistry)) {
+      expect(descriptor.resources.length).toBeGreaterThan(0);
+      for (const resource of descriptor.resources) {
+        expect(resource.path).toMatch(/^\//);
+        expect(resource.path).not.toMatch(/^https?:/);
+      }
+    }
+  });
 });

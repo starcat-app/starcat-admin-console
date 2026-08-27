@@ -164,6 +164,23 @@ describe("ConfigStore", () => {
       "profiles.test.services.closed_service",
     );
   });
+
+  it("migrates an older Agent config to the local Codex runtime", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "starcat-admin-test-"));
+    temporaryDirectories.push(directory);
+    const store = new ConfigStore(directory);
+    const legacy = await store.loadConfig();
+    const legacyAgent = legacy.agent as Partial<typeof legacy.agent>;
+    delete legacyAgent.runtime;
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      path.join(directory, "config.json"),
+      JSON.stringify(legacy),
+      "utf8",
+    );
+
+    expect((await store.loadConfig()).agent.runtime).toBe("codex");
+  });
 });
 
 describe("secretState", () => {

@@ -1,10 +1,12 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bot,
   CheckCircle2,
   Code2,
   ExternalLink,
+  FolderTree,
   LoaderCircle,
+  Plus,
   Search,
   Send,
   ShieldCheck,
@@ -19,13 +21,28 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useConsole } from "@/console-context";
 import { api, jsonBody } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { ImportFinding } from "@/types";
+import type { ImportFinding, WeeklyImportSource } from "@/types";
 
 interface IdentificationResult {
   identificationID: string;
@@ -40,15 +57,71 @@ interface ImportBatch {
   discarded: number;
 }
 
+const emptySourceDraft = {
+  code: "",
+  display_name_zh: "",
+  display_name_en: "",
+};
+
 export function ImportsPage() {
   const { environment, record } = useConsole();
+  const queryClient = useQueryClient();
   const [text, setText] = useState("");
-  const [sourceCode, setSourceCode] = useState("ai_intelligence");
+  const [preferredSourceCode, setPreferredSourceCode] = useState("");
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [sourceDraft, setSourceDraft] = useState(emptySourceDraft);
   const [findings, setFindings] = useState<ImportFinding[]>([]);
   const [published, setPublished] = useState<{
     idempotencyKey: string;
     batchId?: string;
   } | null>(null);
+
+  const sourceQueryKey = ["weekly-import-sources", environment] as const;
+  const sourceQuery = useQuery({
+    queryKey: sourceQueryKey,
+    queryFn: () =>
+      api<WeeklyImportSource[]>(
+        `/api/imports/sources?environment=${environment}`,
+      ),
+  });
+  const sources = useMemo(() => sourceQuery.data ?? [], [sourceQuery.data]);
+  const sourceCode =
+    sources.find((source) => source.code === preferredSourceCode)?.code ??
+    sources.find((source) => source.code === "ai_intelligence")?.code ??
+    sources[0]?.code ??
+    "";
+  const selectedSource = sources.find((source) => source.code === sourceCode);
+
+  const createSource = useMutation({
+    mutationFn: () =>
+      api<WeeklyImportSource>(
+        `/api/imports/sources?environment=${environment}`,
+        {
+          method: "POST",
+          ...jsonBody(sourceDraft),
+        },
+      ),
+    onSuccess: async (source) => {
+      await queryClient.invalidateQueries({ queryKey: sourceQueryKey });
+      setPreferredSourceCode(source.code);
+      setSourceDraft(emptySourceDraft);
+      setSourceDialogOpen(false);
+      record({
+        title: "Weekly category created",
+        detail: `${source.display_name_zh} (${source.code})`,
+        outcome: "success",
+      });
+      toast.success(`已新增分类：${source.display_name_zh}`);
+    },
+    onError: (error) => {
+      record({
+        title: "Weekly category creation",
+        detail: error.message,
+        outcome: "failed",
+      });
+      toast.error(error.message);
+    },
+  });
 
   const identify = useMutation({
     mutationFn: () =>
@@ -174,8 +247,11 @@ export function ImportsPage() {
         />
       </div>
 
-      <div className="grid gap-6 2xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.28fr)]">
-        <section className="rounded-lg border bg-card p-5">
+      <div className="grid gap-6 2xl:h-[min(55rem,calc(100dvh-15rem))] 2xl:min-h-[640px] 2xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.28fr)]">
+        <section
+          data-testid="import-input-panel"
+          className="flex min-h-[640px] flex-col rounded-lg border bg-card p-5 2xl:h-full 2xl:min-h-0"
+        >
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Input evidence</h2>
@@ -188,7 +264,7 @@ export function ImportsPage() {
             </Badge>
           </div>
           <Textarea
-            className="mt-5 min-h-[360px] resize-y font-mono text-xs leading-5"
+            className="mt-5 min-h-[430px] flex-1 resize-none font-mono text-xs leading-5"
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder={
@@ -199,8 +275,16 @@ export function ImportsPage() {
             <span>{text.length.toLocaleString()} / 100,000 chars</span>
             <span>Maximum 200 clues</span>
           </div>
+          {identify.isPending && (
+            <div className="mt-4 shrink-0">
+              <Progress value={66} className="h-1" />
+              <p className="mt-2 text-xs text-muted-foreground">
+                识别会调用当前 Agent 与 GitHub API，耗时取决于线索数量。
+              </p>
+            </div>
+          )}
           <Button
-            className="mt-5 w-full"
+            className="mt-5 w-full shrink-0"
             size="lg"
             disabled={!text.trim() || identify.isPending}
             onClick={() => identify.mutate()}
@@ -211,25 +295,20 @@ export function ImportsPage() {
               <Search />
             )}
             {identify.isPending
-              ? "Agent 正在拆分并联网核验…"
+              ? "Agent 正在联网甄别并核验…"
               : "Identify & verify projects"}
           </Button>
-          {identify.isPending && (
-            <div className="mt-4">
-              <Progress value={66} className="h-1" />
-              <p className="mt-2 text-xs text-muted-foreground">
-                识别会访问模型服务与 GitHub，耗时取决于线索数量。
-              </p>
-            </div>
-          )}
         </section>
 
-        <section className="min-w-0 rounded-lg border bg-card">
-          <div className="flex flex-col justify-between gap-3 border-b px-5 py-4 sm:flex-row sm:items-center">
+        <section
+          data-testid="import-review-panel"
+          className="flex min-h-[640px] min-w-0 flex-col overflow-hidden rounded-lg border bg-card 2xl:h-full 2xl:min-h-0"
+        >
+          <div className="flex shrink-0 flex-col justify-between gap-3 border-b px-5 py-4 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-sm font-semibold">Verification review</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                AI 只能选择已通过 GitHub API 返回的候选仓库。
+                Agent 返回的仓库只有通过 GitHub API 复核后才能选中。
               </p>
             </div>
             <div className="flex gap-2">
@@ -238,7 +317,7 @@ export function ImportsPage() {
             </div>
           </div>
           {!findings.length ? (
-            <div className="p-5">
+            <div className="min-h-0 flex-1 p-5 [&>*]:h-full">
               <EmptyState
                 icon={Sparkles}
                 title="No identification result"
@@ -246,7 +325,7 @@ export function ImportsPage() {
               />
             </div>
           ) : (
-            <div className="max-h-[620px] divide-y overflow-y-auto">
+            <div className="min-h-0 flex-1 divide-y overflow-y-auto">
               {findings.map((finding) => (
                 <div key={finding.id} className="p-5">
                   <div className="flex items-start gap-3">
@@ -300,29 +379,86 @@ export function ImportsPage() {
             </div>
           )}
           {!!findings.length && (
-            <div className="border-t p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex-1">
-                  <label className="text-xs font-medium" htmlFor="source-code">
-                    Source code
-                  </label>
-                  <Input
-                    id="source-code"
-                    className="mt-1.5"
-                    value={sourceCode}
-                    onChange={(event) => setSourceCode(event.target.value)}
-                  />
+            <div className="shrink-0 border-t p-5">
+              <div>
+                <label className="text-xs font-medium" htmlFor="source-code">
+                  发布到分类
+                </label>
+                {/*
+                  Publish 必须和分类下拉、新增按钮同一行顶对齐。
+                  路径说明在控件下方；若把 Publish 和整列做 items-end，按钮会相对下沉。
+                  SelectTrigger 默认 data-[size=default]:h-8，裸写 h-9 盖不掉，必须同层覆盖。
+                */}
+                <div className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-start">
+                  <div className="flex min-w-0 flex-1 items-start gap-2">
+                    <Select
+                      value={sourceCode}
+                      onValueChange={setPreferredSourceCode}
+                      disabled={sourceQuery.isPending || sourceQuery.isError}
+                    >
+                      <SelectTrigger
+                        id="source-code"
+                        className="min-w-0 flex-1 data-[size=default]:h-9"
+                      >
+                        <SelectValue placeholder="选择 Weekly 分类" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" align="start">
+                        {sources.map((source) => (
+                          <SelectItem key={source.code} value={source.code}>
+                            <span>{source.display_name_zh}</span>
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {source.code}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      onClick={() => setSourceDialogOpen(true)}
+                    >
+                      <Plus /> 新增分类
+                    </Button>
+                  </div>
+                  <Button
+                    size="lg"
+                    disabled={
+                      !selected.length ||
+                      !sourceCode ||
+                      sourceQuery.isError ||
+                      publish.isPending
+                    }
+                    onClick={() => publish.mutate()}
+                  >
+                    <Send />{" "}
+                    {publish.isPending
+                      ? "Publishing…"
+                      : `Publish ${selected.length} projects`}
+                  </Button>
                 </div>
-                <Button
-                  size="lg"
-                  disabled={!selected.length || publish.isPending}
-                  onClick={() => publish.mutate()}
-                >
-                  <Send />{" "}
-                  {publish.isPending
-                    ? "Publishing…"
-                    : `Publish ${selected.length} projects`}
-                </Button>
+                {sourceQuery.isError ? (
+                  <div className="mt-2 flex items-center justify-between gap-3 text-xs text-destructive">
+                    <span>
+                      无法读取 Weekly 分类：{sourceQuery.error.message}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => sourceQuery.refetch()}
+                    >
+                      重试
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <FolderTree className="size-3.5" />
+                    将发布到：探索 → 周刊 →{" "}
+                    {selectedSource?.display_name_zh ?? "请选择分类"}
+                  </p>
+                )}
               </div>
               {environment === "production" && (
                 <Alert className="mt-4 border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/35 dark:bg-amber-500/10 dark:text-amber-100">
@@ -357,6 +493,96 @@ export function ImportsPage() {
           )}
         </section>
       </div>
+
+      <Dialog open={sourceDialogOpen} onOpenChange={setSourceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新增 Weekly 分类</DialogTitle>
+            <DialogDescription>
+              创建后可立即用于人工导入，并显示在 Starcat 的“探索 → 周刊”中。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <label className="text-xs font-medium" htmlFor="source-new-code">
+                分类标识
+              </label>
+              <Input
+                id="source-new-code"
+                value={sourceDraft.code}
+                onChange={(event) =>
+                  setSourceDraft((current) => ({
+                    ...current,
+                    code: event.target.value.toLowerCase(),
+                  }))
+                }
+                placeholder="developer_tools"
+              />
+              <p className="text-xs text-muted-foreground">
+                以小写字母开头，仅使用小写字母、数字和下划线。
+              </p>
+            </div>
+            <div className="grid gap-1.5">
+              <label className="text-xs font-medium" htmlFor="source-new-zh">
+                中文名称
+              </label>
+              <Input
+                id="source-new-zh"
+                value={sourceDraft.display_name_zh}
+                onChange={(event) =>
+                  setSourceDraft((current) => ({
+                    ...current,
+                    display_name_zh: event.target.value,
+                  }))
+                }
+                placeholder="开发工具"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <label className="text-xs font-medium" htmlFor="source-new-en">
+                英文名称
+              </label>
+              <Input
+                id="source-new-en"
+                value={sourceDraft.display_name_en}
+                onChange={(event) =>
+                  setSourceDraft((current) => ({
+                    ...current,
+                    display_name_en: event.target.value,
+                  }))
+                }
+                placeholder="Developer Tools"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSourceDialogOpen(false)}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                !/^[a-z][a-z0-9_]{1,31}$/.test(sourceDraft.code) ||
+                !sourceDraft.display_name_zh.trim() ||
+                !sourceDraft.display_name_en.trim() ||
+                createSource.isPending
+              }
+              onClick={() => createSource.mutate()}
+            >
+              {createSource.isPending ? (
+                <LoaderCircle className="animate-spin" />
+              ) : (
+                <Plus />
+              )}
+              {createSource.isPending ? "正在创建…" : "创建分类"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
