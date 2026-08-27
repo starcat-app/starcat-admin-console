@@ -219,6 +219,45 @@ test.beforeEach(async ({ page }) => {
             status: "draft",
             github_repo_count: 0,
           },
+          {
+            id: "awesome-archived",
+            repo_full_name: "starcat-app/awesome-archived",
+            display_name: "awesome-archived",
+            image_url: "",
+            summary_zh: "",
+            summary_en: "",
+            featured: false,
+            sort_order: 4,
+            status: "archived",
+            github_repo_count: 12,
+            last_synced_at: "2026-08-27T00:00:00Z",
+          },
+          {
+            id: "awesome-python",
+            repo_full_name: "vinta/awesome-python",
+            display_name: "awesome-python",
+            image_url: "",
+            summary_zh: "",
+            summary_en: "",
+            featured: false,
+            sort_order: 5,
+            status: "published",
+            github_repo_count: 475,
+            last_synced_at: "2026-08-27T00:00:00Z",
+          },
+          {
+            id: "awesome-go",
+            repo_full_name: "avelino/awesome-go",
+            display_name: "awesome-go",
+            image_url: "",
+            summary_zh: "",
+            summary_en: "",
+            featured: false,
+            sort_order: 6,
+            status: "published",
+            github_repo_count: 2799,
+            last_synced_at: "2026-08-27T00:00:00Z",
+          },
         ],
       }),
     }),
@@ -243,6 +282,50 @@ test("shows parsed repository counts for Awesome sources", async ({ page }) => {
       .getByRole("cell")
       .nth(3),
   ).toHaveText("—");
+});
+
+test("syncs every non-archived Awesome source with one action", async ({
+  page,
+}) => {
+  const requests: string[] = [];
+  let releaseRequests!: () => void;
+  const requestGate = new Promise<void>((resolve) => {
+    releaseRequests = resolve;
+  });
+  await page.route(
+    "**/api/awesome/sources/*/sync?environment=*",
+    async (route) => {
+      requests.push(route.request().url());
+      await requestGate;
+      const failed = route.request().url().includes("awesome-empty");
+      await route.fulfill({
+        status: failed ? 500 : 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          failed
+            ? { error: "fixture sync failed" }
+            : { data: { status: "succeeded" } },
+        ),
+      });
+    },
+  );
+
+  await page.goto("/awesome");
+  const syncAll = page.getByRole("button", { name: "Sync all" });
+  await syncAll.click();
+
+  await expect.poll(() => requests.length).toBe(3);
+  await expect(
+    page.getByRole("button", { name: "Syncing 0 / 5" }),
+  ).toBeDisabled();
+  expect(requests.some((url) => url.includes("awesome-archived"))).toBe(false);
+
+  releaseRequests();
+  await expect.poll(() => requests.length).toBe(5);
+  await expect(page.getByRole("button", { name: "Sync all" })).toBeEnabled();
+  await expect(
+    page.getByText("Awesome 同步完成：成功 4 个，失败 1 个"),
+  ).toBeVisible();
 });
 
 test("switches environment and navigates the console shell", async ({

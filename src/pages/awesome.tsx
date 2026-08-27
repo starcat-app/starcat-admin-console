@@ -61,10 +61,19 @@ const emptySource: AwesomeSource = {
   sort_order: 0,
 };
 
+const bulkSyncConcurrency = 3;
+
+interface BulkSyncProgress {
+  completed: number;
+  total: number;
+}
+
 export function AwesomePage() {
   const { environment, record } = useConsole();
   const client = useQueryClient();
   const [editing, setEditing] = useState<AwesomeSource | null>(null);
+  const [bulkSyncProgress, setBulkSyncProgress] =
+    useState<BulkSyncProgress | null>(null);
   const query = useQuery({
     queryKey: ["awesome", environment],
     queryFn: () =>
@@ -98,6 +107,66 @@ export function AwesomePage() {
   });
 
   const sources = Array.isArray(query.data) ? query.data : [];
+  const bulkSyncTargets = sources.filter(
+    (source) => source.status !== "archived",
+  );
+  const bulkSync = useMutation({
+    mutationFn: async (targets: AwesomeSource[]) => {
+      let succeeded = 0;
+      let failed = 0;
+      let completed = 0;
+      setBulkSyncProgress({ completed, total: targets.length });
+
+      // 分批而不是一次性 fan-out，避免大量来源同时争抢 GitHub API 限额。
+      for (
+        let offset = 0;
+        offset < targets.length;
+        offset += bulkSyncConcurrency
+      ) {
+        const batch = targets.slice(offset, offset + bulkSyncConcurrency);
+        await Promise.allSettled(
+          batch.map(async (source) => {
+            try {
+              await api(
+                `/api/awesome/sources/${encodeURIComponent(source.id)}/sync?environment=${environment}`,
+                { method: "POST" },
+              );
+              succeeded += 1;
+            } catch (error) {
+              failed += 1;
+              throw error;
+            } finally {
+              // 每个请求结束就推进进度；失败只计数，不阻断下一批来源。
+              completed += 1;
+              setBulkSyncProgress({ completed, total: targets.length });
+            }
+          }),
+        );
+      }
+
+      return { succeeded, failed, total: targets.length };
+    },
+    onSuccess: (result) => {
+      record({
+        title: "Awesome bulk sync",
+        detail: `${result.succeeded}/${result.total} sources synced`,
+        outcome: result.failed === 0 ? "success" : "failed",
+      });
+      if (result.failed === 0) {
+        toast.success(`已同步 ${result.succeeded} 个 Awesome 来源`);
+      } else {
+        toast.warning(
+          `Awesome 同步完成：成功 ${result.succeeded} 个，失败 ${result.failed} 个`,
+        );
+      }
+    },
+    onError: (error) => toast.error(error.message),
+    onSettled: () => {
+      setBulkSyncProgress(null);
+      void client.invalidateQueries({ queryKey: ["awesome", environment] });
+    },
+  });
+
   return (
     <div>
       <PageHeader
@@ -120,14 +189,30 @@ export function AwesomePage() {
             {sources.filter((item) => item.featured).length} featured
           </Badge>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void query.refetch()}
-        >
-          <RefreshCw className={query.isFetching ? "animate-spin" : ""} />{" "}
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={
+              !bulkSyncTargets.length || bulkSync.isPending || action.isPending
+            }
+            onClick={() => bulkSync.mutate(bulkSyncTargets)}
+          >
+            <RefreshCw className={bulkSync.isPending ? "animate-spin" : ""} />
+            {bulkSyncProgress
+              ? `Syncing ${bulkSyncProgress.completed} / ${bulkSyncProgress.total}`
+              : "Sync all"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={bulkSync.isPending}
+            onClick={() => void query.refetch()}
+          >
+            <RefreshCw className={query.isFetching ? "animate-spin" : ""} />{" "}
+            Refresh
+          </Button>
+        </div>
       </div>
       <div className="overflow-hidden rounded-lg border bg-card">
         {query.isError ? (
@@ -239,6 +324,7 @@ export function AwesomePage() {
                           Edit metadata
                         </DropdownMenuItem>
                         <DropdownMenuItem
+                          disabled={bulkSync.isPending}
                           onClick={() =>
                             action.mutate({ source, name: "sync" })
                           }
