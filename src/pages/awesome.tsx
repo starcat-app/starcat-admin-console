@@ -15,6 +15,11 @@ import { toast } from "sonner";
 
 import { EnvironmentMark, PageHeader } from "@/components/app-shell";
 import { EmptyState, StatusBadge } from "@/components/status";
+import {
+  DEFAULT_TABLE_PAGE_SIZE,
+  paginateItems,
+  TablePagination,
+} from "@/components/table-pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,6 +79,11 @@ export function AwesomePage() {
   const [editing, setEditing] = useState<AwesomeSource | null>(null);
   const [bulkSyncProgress, setBulkSyncProgress] =
     useState<BulkSyncProgress | null>(null);
+  const [pagination, setPagination] = useState({ environment, page: 1 });
+  // 环境切换时直接派生第一页，避免用 Effect 再触发一次级联渲染。
+  const page = pagination.environment === environment ? pagination.page : 1;
+  const setPage = (nextPage: number) =>
+    setPagination({ environment, page: nextPage });
   const query = useQuery({
     queryKey: ["awesome", environment],
     queryFn: () =>
@@ -107,6 +117,7 @@ export function AwesomePage() {
   });
 
   const sources = Array.isArray(query.data) ? query.data : [];
+  const visibleSources = paginateItems(sources, page, DEFAULT_TABLE_PAGE_SIZE);
   const bulkSyncTargets = sources.filter(
     (source) => source.status !== "archived",
   );
@@ -251,7 +262,7 @@ export function AwesomePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sources.map((source) => (
+              {visibleSources.map((source) => (
                 <TableRow key={source.id}>
                   <TableCell>
                     <div className="font-medium">{source.display_name}</div>
@@ -356,6 +367,13 @@ export function AwesomePage() {
             </TableBody>
           </Table>
         )}
+        {!query.isError && sources.length > 0 ? (
+          <TablePagination
+            page={page}
+            totalItems={sources.length}
+            onPageChange={setPage}
+          />
+        ) : null}
       </div>
       <SourceEditor
         key={editing?.id ?? "new"}

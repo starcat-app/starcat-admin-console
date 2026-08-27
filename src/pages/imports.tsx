@@ -17,6 +17,11 @@ import { toast } from "sonner";
 
 import { EnvironmentMark, PageHeader } from "@/components/app-shell";
 import { EmptyState } from "@/components/status";
+import {
+  DEFAULT_TABLE_PAGE_SIZE,
+  paginateItems,
+  TablePagination,
+} from "@/components/table-pagination";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,6 +76,7 @@ export function ImportsPage() {
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [sourceDraft, setSourceDraft] = useState(emptySourceDraft);
   const [findings, setFindings] = useState<ImportFinding[]>([]);
+  const [findingPage, setFindingPage] = useState(1);
   const [published, setPublished] = useState<{
     idempotencyKey: string;
     batchId?: string;
@@ -131,6 +137,7 @@ export function ImportsPage() {
       }),
     onSuccess: (data) => {
       setFindings(data.findings);
+      setFindingPage(1);
       setPublished(null);
       record({
         title: "Agent identification",
@@ -152,6 +159,11 @@ export function ImportsPage() {
   const selected = useMemo(
     () => findings.filter((item) => item.selected && item.repository),
     [findings],
+  );
+  const visibleFindings = paginateItems(
+    findings,
+    findingPage,
+    DEFAULT_TABLE_PAGE_SIZE,
   );
   const publish = useMutation({
     mutationFn: () =>
@@ -326,7 +338,7 @@ export function ImportsPage() {
             </div>
           ) : (
             <div className="min-h-0 flex-1 divide-y overflow-y-auto">
-              {findings.map((finding) => (
+              {visibleFindings.map((finding) => (
                 <div key={finding.id} className="p-5">
                   <div className="flex items-start gap-3">
                     <Checkbox
@@ -378,6 +390,12 @@ export function ImportsPage() {
               ))}
             </div>
           )}
+          <TablePagination
+            page={findingPage}
+            totalItems={findings.length}
+            onPageChange={setFindingPage}
+            className="shrink-0"
+          />
           {!!findings.length && (
             <div className="shrink-0 border-t p-5">
               <div>

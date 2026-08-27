@@ -1,7 +1,13 @@
 import { Activity, CheckCircle2, CircleX, Clock3 } from "lucide-react";
+import { useState } from "react";
 
 import { PageHeader } from "@/components/app-shell";
 import { EmptyState } from "@/components/status";
+import {
+  DEFAULT_TABLE_PAGE_SIZE,
+  paginateItems,
+  TablePagination,
+} from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -16,6 +22,12 @@ import { relativeTime } from "@/lib/format";
 
 export function ActivityPage() {
   const { activity } = useConsole();
+  const [page, setPage] = useState(1);
+  const visibleActivity = paginateItems(
+    activity,
+    page,
+    DEFAULT_TABLE_PAGE_SIZE,
+  );
   return (
     <div>
       <PageHeader
@@ -36,7 +48,7 @@ export function ActivityPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {activity.map((entry) => (
+              {visibleActivity.map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell>
                     {entry.outcome === "success" ? (
@@ -72,6 +84,13 @@ export function ActivityPage() {
             />
           </div>
         )}
+        {activity.length ? (
+          <TablePagination
+            page={page}
+            totalItems={activity.length}
+            onPageChange={setPage}
+          />
+        ) : null}
       </div>
     </div>
   );
