@@ -19,6 +19,11 @@ const ServicesPage = lazy(() =>
     default: module.ServicesPage,
   })),
 );
+const MonitoringPage = lazy(() =>
+  import("@/pages/monitoring").then((module) => ({
+    default: module.MonitoringPage,
+  })),
+);
 const ImportsPage = lazy(() =>
   import("@/pages/imports").then((module) => ({ default: module.ImportsPage })),
 );
@@ -89,6 +94,11 @@ const servicesRoute = createRoute({
   }),
   component: ServicesPage,
 });
+const monitoringRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/monitoring",
+  component: MonitoringPage,
+});
 const importsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/imports",
@@ -148,6 +158,7 @@ const flyRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   servicesRoute,
+  monitoringRoute,
   importsRoute,
   awesomeRoute,
   activityRoute,

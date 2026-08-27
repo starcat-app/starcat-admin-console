@@ -32,12 +32,21 @@ export interface ActionDescriptor {
   }>;
 }
 
+export interface ResourceDescriptor {
+  id: string;
+  label: string;
+  path: string;
+  auth: SecretKind;
+  description: string;
+}
+
 export interface ServiceDescriptor {
   id: ServiceId;
   label: string;
   description: string;
   readOnly: boolean;
   stats: StatDescriptor[];
+  resources: ResourceDescriptor[];
   actions: ActionDescriptor[];
 }
 
@@ -55,6 +64,46 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
         pick: "data.total_shares",
         auth: "apiKey",
         description: "当前已创建分享链接总数",
+      },
+      {
+        id: "active-shares",
+        label: "Active shares",
+        path: "/internal/stats",
+        pick: "data.active_shares",
+        auth: "apiKey",
+        description: "仍可访问的分享链接",
+      },
+      {
+        id: "total-visits",
+        label: "Total visits",
+        path: "/internal/stats",
+        pick: "data.total_visits",
+        auth: "apiKey",
+        description: "公开分享累计访问量",
+      },
+      {
+        id: "created-7d",
+        label: "Created 7d",
+        path: "/internal/stats",
+        pick: "data.created_7d",
+        auth: "apiKey",
+        description: "最近七天创建量",
+      },
+    ],
+    resources: [
+      {
+        id: "recent-shares",
+        label: "Recent shares",
+        path: "/internal/shares?sort=recent&limit=50",
+        auth: "apiKey",
+        description: "最近创建的分享记录",
+      },
+      {
+        id: "top-shares",
+        label: "Top shares",
+        path: "/internal/shares?sort=visits&limit=50",
+        auth: "apiKey",
+        description: "访问量最高的分享记录",
       },
     ],
     actions: [],
@@ -88,6 +137,38 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
         pick: "data.languages",
         auth: "apiKey",
         description: "语言分类数",
+      },
+      {
+        id: "visible",
+        label: "Visible repos",
+        path: "/internal/stats",
+        pick: "data.operational.visible_rows",
+        auth: "apiKey",
+        description: "可对客户端展示的仓库记录",
+      },
+      {
+        id: "pending-enrich",
+        label: "Pending enrich",
+        path: "/internal/stats",
+        pick: "data.operational.pending_enrich",
+        auth: "apiKey",
+        description: "等待 GitHub 元数据补全的记录",
+      },
+    ],
+    resources: [
+      {
+        id: "daily-repos",
+        label: "Daily repositories",
+        path: "/api/v1/repos?since=daily&limit=50",
+        auth: "apiKey",
+        description: "Daily Trending 列表",
+      },
+      {
+        id: "languages",
+        label: "Languages",
+        path: "/api/v1/languages",
+        auth: "apiKey",
+        description: "实际语言聚合",
       },
     ],
     actions: [
@@ -158,6 +239,45 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
         auth: "apiKey",
         description: "AI 情报来源仓库数",
       },
+      {
+        id: "available",
+        label: "Available repos",
+        path: "/internal/stats",
+        pick: "data.available_repos",
+        auth: "apiKey",
+        description: "仍可访问的仓库记录",
+      },
+      {
+        id: "enriched",
+        label: "Enriched repos",
+        path: "/internal/stats",
+        pick: "data.enriched_repos",
+        auth: "apiKey",
+        description: "已完成元数据补全的仓库",
+      },
+    ],
+    resources: [
+      {
+        id: "sources",
+        label: "Sources",
+        path: "/internal/sources",
+        auth: "adminKey",
+        description: "来源配置与同步状态",
+      },
+      {
+        id: "ingest-batches",
+        label: "Ingest batches",
+        path: "/internal/ingest-batches?limit=50",
+        auth: "adminKey",
+        description: "最近导入批次和队列状态",
+      },
+      {
+        id: "recent-repos",
+        label: "Recent repositories",
+        path: "/api/v1/repos?page=1&page_size=50&sort=updated_at&order=desc",
+        auth: "apiKey",
+        description: "最近更新的聚合仓库",
+      },
     ],
     actions: [
       {
@@ -194,7 +314,49 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
     label: "Wiki",
     description: "外部文档站与 Wiki 可用性探测",
     readOnly: false,
-    stats: [],
+    stats: [
+      {
+        id: "repositories",
+        label: "Repositories",
+        path: "/internal/stats",
+        pick: "data.repositories",
+        auth: "apiKey",
+        description: "已探测仓库数",
+      },
+      {
+        id: "probes",
+        label: "Total probes",
+        path: "/internal/stats",
+        pick: "data.total_probes",
+        auth: "apiKey",
+        description: "文档来源探测记录",
+      },
+      {
+        id: "expired",
+        label: "Expired probes",
+        path: "/internal/stats",
+        pick: "data.expired_probes",
+        auth: "apiKey",
+        description: "等待刷新探测结果",
+      },
+      {
+        id: "retryable",
+        label: "Retryable",
+        path: "/internal/stats",
+        pick: "data.retryable",
+        auth: "apiKey",
+        description: "当前可重试错误",
+      },
+    ],
+    resources: [
+      {
+        id: "probe-errors",
+        label: "Probe errors",
+        path: "/internal/probe-errors?limit=50",
+        auth: "apiKey",
+        description: "最近探测错误与重试状态",
+      },
+    ],
     actions: [
       {
         id: "sync-probe",
@@ -229,7 +391,49 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
     label: "Recommend",
     description: "相似仓库推荐服务",
     readOnly: false,
-    stats: [],
+    stats: [
+      {
+        id: "cache-entries",
+        label: "V1 cache entries",
+        path: "/internal/stats",
+        pick: "data.v1.cache.entries",
+        auth: "apiKey",
+        description: "SimRepo 兼容缓存条目",
+      },
+      {
+        id: "cache-hits",
+        label: "V1 cache hits",
+        path: "/internal/stats",
+        pick: "data.v1.cache.hits",
+        auth: "apiKey",
+        description: "本次进程缓存命中次数",
+      },
+      {
+        id: "model-repos",
+        label: "V2 model repos",
+        path: "/internal/stats",
+        pick: "data.v2.repositories",
+        auth: "apiKey",
+        description: "激活模型中的仓库数",
+      },
+      {
+        id: "model-edges",
+        label: "V2 edges",
+        path: "/internal/stats",
+        pick: "data.v2.recommendation_edges",
+        auth: "apiKey",
+        description: "激活模型推荐边数量",
+      },
+    ],
+    resources: [
+      {
+        id: "model-state",
+        label: "Model state",
+        path: "/internal/stats",
+        auth: "apiKey",
+        description: "V1 缓存和 V2 激活模型状态",
+      },
+    ],
     actions: [],
   },
   discovery: {
@@ -269,6 +473,53 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
         pick: "meta.total",
         auth: "apiKey",
         description: "主题定义数量",
+      },
+      {
+        id: "catalog-repos",
+        label: "Catalog repos",
+        path: "/internal/stats",
+        pick: "data.repositories.total",
+        auth: "apiKey",
+        description: "Discovery 目录仓库总量",
+      },
+      {
+        id: "history-ready",
+        label: "History ready",
+        path: "/internal/stats",
+        pick: "data.star_history.ready",
+        auth: "apiKey",
+        description: "已生成 Star History 的仓库",
+      },
+      {
+        id: "awesome-published",
+        label: "Awesome published",
+        path: "/internal/stats",
+        pick: "data.awesome.published",
+        auth: "apiKey",
+        description: "已发布 Awesome 来源",
+      },
+    ],
+    resources: [
+      {
+        id: "sync-runs",
+        label: "Sync runs",
+        path: "/internal/sync-runs?limit=50",
+        auth: "adminKey",
+        description: "最近 Discovery 同步任务",
+      },
+      {
+        id: "awesome-sources",
+        label: "Awesome sources",
+        path: "/internal/discovery/awesome/sources",
+        auth: "adminKey",
+        description: "Awesome 来源状态",
+      },
+      {
+        id: "trending-candidates",
+        label: "Trending candidates",
+        path: "/internal/discovery/trending-candidates",
+        auth: "adminKey",
+        description: "Trending 候选诊断",
       },
     ],
     actions: [
@@ -313,7 +564,11 @@ export const serviceRegistry: Record<ServiceId, ServiceDescriptor> = {
 export function credentialKindsForService(service: ServiceId): SecretKind[] {
   const descriptor = serviceRegistry[service];
   const kinds = new Set<SecretKind>(["apiKey"]);
-  for (const item of [...descriptor.stats, ...descriptor.actions]) {
+  for (const item of [
+    ...descriptor.stats,
+    ...descriptor.resources,
+    ...descriptor.actions,
+  ]) {
     kinds.add(item.auth);
   }
   return [...kinds];

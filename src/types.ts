@@ -68,6 +68,13 @@ export interface ServiceAction {
   }>;
 }
 
+export interface ServiceResource {
+  id: string;
+  label: string;
+  path: string;
+  description: string;
+}
+
 export interface ServiceStatus {
   id: ServiceId;
   label: string;
@@ -83,9 +90,69 @@ export interface ServiceStatus {
     description: string;
     error?: string;
   }>;
+  resources: ServiceResource[];
   actions: ServiceAction[];
   credentialKinds: SecretKind[];
   credentials: Record<SecretKind, SecretState>;
+}
+
+export type MetricsRange = "1h" | "24h" | "7d" | "30d" | "180d";
+export type MetricsMetric =
+  | "requests"
+  | "errors"
+  | "error_rate"
+  | "latency_average"
+  | "latency_p50"
+  | "latency_p95"
+  | "latency_p99";
+
+export interface MetricsSummary {
+  service: string;
+  from: string;
+  to: string;
+  request_count: number;
+  error_count: number;
+  error_rate: number;
+  average_ms: number;
+  p50_ms: number;
+  p95_ms: number;
+  p99_ms: number;
+  maximum_ms: number;
+  response_bytes: number;
+}
+
+export interface MetricsPoint {
+  timestamp: string;
+  value: number;
+}
+
+export interface RouteMetric {
+  route: string;
+  method: string;
+  request_count: number;
+  error_count: number;
+  error_rate: number;
+  average_ms: number;
+  p95_ms: number;
+  maximum_ms: number;
+}
+
+export interface ServiceObservability {
+  id: ServiceId;
+  label: string;
+  ok: boolean;
+  error?: string;
+  summary: MetricsSummary | null;
+  timeseries: {
+    service: string;
+    metric: MetricsMetric;
+    interval: string;
+    from: string;
+    to: string;
+    points: MetricsPoint[];
+  } | null;
+  routes: RouteMetric[];
+  statusCodes: Array<{ status_class: string; request_count: number }>;
 }
 
 export interface AwesomeSource {

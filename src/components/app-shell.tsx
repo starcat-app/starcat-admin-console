@@ -4,6 +4,7 @@ import {
   Bot,
   Braces,
   Cat,
+  ChartNoAxesCombined,
   ChevronDown,
   Database,
   Globe2,
@@ -51,6 +52,7 @@ import { cn } from "@/lib/utils";
 const primaryNavigation = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/services", label: "Services", icon: ServerCog },
+  { to: "/monitoring", label: "API monitoring", icon: ChartNoAxesCombined },
   { to: "/imports", label: "Curated imports", icon: Sparkles },
   { to: "/awesome", label: "Awesome sources", icon: Database },
   { to: "/activity", label: "Jobs & activity", icon: Activity },

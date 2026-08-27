@@ -1,6 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSearch } from "@tanstack/react-router";
-import { KeyRound, RefreshCw, Server, ShieldCheck } from "lucide-react";
+import {
+  Database,
+  KeyRound,
+  RefreshCw,
+  Server,
+  ShieldCheck,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { EnvironmentMark, PageHeader } from "@/components/app-shell";
@@ -13,7 +19,7 @@ import { useConsole } from "@/console-context";
 import { api } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { ServiceId, ServiceStatus } from "@/types";
+import type { ServiceId, ServiceResource, ServiceStatus } from "@/types";
 
 export function ServicesPage() {
   const { environment } = useConsole();
@@ -180,6 +186,31 @@ export function ServicesPage() {
               )}
 
               <Separator className="my-6" />
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold">Data resources</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    只读展示服务登记过的数据与诊断结果，不接受任意 URL。
+                  </p>
+                </div>
+                <Badge variant="secondary">
+                  {current.resources.length} views
+                </Badge>
+              </div>
+              {current.resources.length ? (
+                <ServiceResources
+                  key={current.id}
+                  service={current.id}
+                  resources={current.resources}
+                  environment={environment}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  该服务暂无数据视图。
+                </p>
+              )}
+
+              <Separator className="my-6" />
               <div className="mb-4">
                 <h3 className="text-sm font-semibold">Registered actions</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -225,6 +256,116 @@ export function ServicesPage() {
       </div>
     </div>
   );
+}
+
+function ServiceResources({
+  service,
+  resources,
+  environment,
+}: {
+  service: ServiceId;
+  resources: ServiceResource[];
+  environment: string;
+}) {
+  const [selected, setSelected] = useState(resources[0]?.id);
+  const resource =
+    resources.find((item) => item.id === selected) ?? resources[0];
+  const query = useQuery({
+    queryKey: ["service-resource", environment, service, resource?.id],
+    enabled: Boolean(resource),
+    queryFn: () =>
+      api<{ ok: boolean; body: unknown; error?: string }>(
+        `/api/services/${service}/resources/${resource.id}?environment=${environment}`,
+      ),
+  });
+  return (
+    <div className="overflow-hidden rounded-lg border">
+      <div className="flex flex-wrap gap-2 border-b bg-muted/30 p-2">
+        {resources.map((item) => (
+          <Button
+            key={item.id}
+            variant={item.id === resource.id ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setSelected(item.id)}
+          >
+            <Database /> {item.label}
+          </Button>
+        ))}
+      </div>
+      <div className="p-4">
+        <div className="mb-3">
+          <div className="text-sm font-medium">{resource.label}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {resource.description} · <code>{resource.path}</code>
+          </div>
+        </div>
+        {query.isLoading ? (
+          <div className="text-sm text-muted-foreground">Loading resource…</div>
+        ) : query.isError ? (
+          <div className="text-sm text-destructive">{query.error.message}</div>
+        ) : (
+          <ResourceTable value={query.data?.body} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ResourceTable({ value }: { value: unknown }) {
+  const record =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : undefined;
+  const candidate = record?.data ?? value;
+  const rows = Array.isArray(candidate)
+    ? candidate
+    : candidate
+      ? [candidate]
+      : [];
+  const objects = rows.filter(
+    (row): row is Record<string, unknown> =>
+      Boolean(row) && typeof row === "object" && !Array.isArray(row),
+  );
+  const columns = [
+    ...new Set(objects.flatMap((row) => Object.keys(row))),
+  ].slice(0, 10);
+  if (!objects.length)
+    return <div className="text-sm text-muted-foreground">No data.</div>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] text-left text-xs">
+        <thead className="border-b text-muted-foreground">
+          <tr>
+            {columns.map((column) => (
+              <th key={column} className="px-2 py-2 font-medium">
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {objects.slice(0, 50).map((row, index) => (
+            <tr key={index} className="border-b last:border-0">
+              {columns.map((column) => (
+                <td
+                  key={column}
+                  className="max-w-64 truncate px-2 py-2 font-mono"
+                >
+                  {formatCell(row[column])}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function formatCell(value: unknown) {
+  if (value == null) return "—";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
 }
 
 function InfoTile({
