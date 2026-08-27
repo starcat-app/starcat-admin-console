@@ -12,6 +12,11 @@ import { useMemo, useState } from "react";
 import { EnvironmentMark, PageHeader } from "@/components/app-shell";
 import { ServiceActionButton } from "@/components/service-action";
 import { StatusBadge } from "@/components/status";
+import {
+  DEFAULT_TABLE_PAGE_SIZE,
+  paginateItems,
+  TablePagination,
+} from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -304,7 +309,7 @@ function ServiceResources({
         ) : query.isError ? (
           <div className="text-sm text-destructive">{query.error.message}</div>
         ) : (
-          <ResourceTable value={query.data?.body} />
+          <ResourceTable key={resource.id} value={query.data?.body} />
         )}
       </div>
     </div>
@@ -312,6 +317,7 @@ function ServiceResources({
 }
 
 function ResourceTable({ value }: { value: unknown }) {
+  const [page, setPage] = useState(1);
   const record =
     value && typeof value === "object"
       ? (value as Record<string, unknown>)
@@ -329,35 +335,49 @@ function ResourceTable({ value }: { value: unknown }) {
   const columns = [
     ...new Set(objects.flatMap((row) => Object.keys(row))),
   ].slice(0, 10);
+  // 服务资源接口当前最多返回 50 条；分页只改变展示密度，不扩大既有读取范围。
+  const boundedObjects = objects.slice(0, 50);
+  const visibleObjects = paginateItems(
+    boundedObjects,
+    page,
+    DEFAULT_TABLE_PAGE_SIZE,
+  );
   if (!objects.length)
     return <div className="text-sm text-muted-foreground">No data.</div>;
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-left text-xs">
-        <thead className="border-b text-muted-foreground">
-          <tr>
-            {columns.map((column) => (
-              <th key={column} className="px-2 py-2 font-medium">
-                {column}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {objects.slice(0, 50).map((row, index) => (
-            <tr key={index} className="border-b last:border-0">
+    <div className="overflow-hidden rounded-md border">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left text-xs">
+          <thead className="border-b text-muted-foreground">
+            <tr>
               {columns.map((column) => (
-                <td
-                  key={column}
-                  className="max-w-64 truncate px-2 py-2 font-mono"
-                >
-                  {formatCell(row[column])}
-                </td>
+                <th key={column} className="px-2 py-2 font-medium">
+                  {column}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visibleObjects.map((row, index) => (
+              <tr key={index} className="border-b last:border-0">
+                {columns.map((column) => (
+                  <td
+                    key={column}
+                    className="max-w-64 truncate px-2 py-2 font-mono"
+                  >
+                    {formatCell(row[column])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <TablePagination
+        page={page}
+        totalItems={boundedObjects.length}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

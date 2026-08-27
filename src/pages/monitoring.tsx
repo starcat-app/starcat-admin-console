@@ -19,6 +19,11 @@ import {
 } from "recharts";
 
 import { EnvironmentMark, PageHeader } from "@/components/app-shell";
+import {
+  DEFAULT_TABLE_PAGE_SIZE,
+  paginateItems,
+  TablePagination,
+} from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +66,7 @@ export function MonitoringPage() {
   const [range, setRange] = useState<MetricsRange>("24h");
   const [metric, setMetric] = useState<MetricsMetric>("requests");
   const [service, setService] = useState<ServiceId | "all">("all");
+  const [routePage, setRoutePage] = useState(1);
   const query = useQuery({
     queryKey: ["observability", environment, range, metric],
     queryFn: () =>
@@ -82,6 +88,11 @@ export function MonitoringPage() {
     )
     .sort((a, b) => b.request_count - a.request_count)
     .slice(0, 30);
+  const visibleRoutes = paginateItems(
+    routes,
+    routePage,
+    DEFAULT_TABLE_PAGE_SIZE,
+  );
 
   return (
     <div>
@@ -106,7 +117,10 @@ export function MonitoringPage() {
       <div className="mb-6 flex flex-wrap gap-2 rounded-lg border bg-card p-3">
         <Select
           value={service}
-          onValueChange={(value) => setService(value as ServiceId | "all")}
+          onValueChange={(value) => {
+            setService(value as ServiceId | "all");
+            setRoutePage(1);
+          }}
         >
           <SelectTrigger className="w-44">
             <SelectValue />
@@ -122,7 +136,10 @@ export function MonitoringPage() {
         </Select>
         <Select
           value={range}
-          onValueChange={(value) => setRange(value as MetricsRange)}
+          onValueChange={(value) => {
+            setRange(value as MetricsRange);
+            setRoutePage(1);
+          }}
         >
           <SelectTrigger className="w-28">
             <SelectValue />
@@ -137,7 +154,10 @@ export function MonitoringPage() {
         </Select>
         <Select
           value={metric}
-          onValueChange={(value) => setMetric(value as MetricsMetric)}
+          onValueChange={(value) => {
+            setMetric(value as MetricsMetric);
+            setRoutePage(1);
+          }}
         >
           <SelectTrigger className="w-44">
             <SelectValue />
@@ -255,7 +275,7 @@ export function MonitoringPage() {
               </tr>
             </thead>
             <tbody>
-              {routes.map((route) => (
+              {visibleRoutes.map((route) => (
                 <tr
                   key={`${route.service}-${route.method}-${route.route}`}
                   className="border-b last:border-0"
@@ -282,6 +302,11 @@ export function MonitoringPage() {
             No route metrics.
           </div>
         )}
+        <TablePagination
+          page={routePage}
+          totalItems={routes.length}
+          onPageChange={setRoutePage}
+        />
       </div>
     </div>
   );
