@@ -15,6 +15,10 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app-shell";
 import { EmptyState } from "@/components/status";
+import {
+  DEFAULT_TABLE_PAGE_SIZE,
+  TablePagination,
+} from "@/components/table-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -55,7 +59,7 @@ import {
   waitForDataPlatformJob,
 } from "./data-platform-shared";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
 const catalogRuntimeByDataset: Record<
   string,
@@ -176,9 +180,6 @@ export function DataPlatformPartitionsPage() {
     0,
     (downloadStatus?.completed_partitions ?? 0) - catalogAccountedPartitions,
   );
-  const canPrevious = offset > 0;
-  const canNext = Boolean(page && offset + page.items.length < page.total);
-
   function resetOffset() {
     setOffset(0);
   }
@@ -304,13 +305,6 @@ export function DataPlatformPartitionsPage() {
           />
         ) : (
           <div className="overflow-hidden rounded-xl border bg-card">
-            <div className="flex items-center justify-between border-b px-4 py-3 text-xs text-muted-foreground">
-              <span>
-                Showing {offset + 1}–{offset + page.items.length} of{" "}
-                {page.total.toLocaleString()}
-              </span>
-              <span className="font-mono">100 rows / page</span>
-            </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -363,24 +357,12 @@ export function DataPlatformPartitionsPage() {
                 </TableBody>
               </Table>
             </div>
-            <div className="flex justify-end gap-2 border-t p-3">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!canPrevious}
-                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!canNext}
-                onClick={() => setOffset(offset + PAGE_SIZE)}
-              >
-                Next
-              </Button>
-            </div>
+            <TablePagination
+              page={Math.floor(offset / PAGE_SIZE) + 1}
+              pageSize={PAGE_SIZE}
+              totalItems={page.total}
+              onPageChange={(nextPage) => setOffset((nextPage - 1) * PAGE_SIZE)}
+            />
           </div>
         )}
       </section>

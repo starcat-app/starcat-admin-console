@@ -25,6 +25,11 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/app-shell";
 import { EmptyState, StatusBadge } from "@/components/status";
+import {
+  DEFAULT_TABLE_PAGE_SIZE,
+  paginateItems,
+  TablePagination,
+} from "@/components/table-pagination";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -399,7 +404,9 @@ export function DataPlatformPage() {
         </div>
 
         {dryRun ? <DryRunSummary result={dryRun} /> : null}
-        {queryResult ? <QueryResultTable result={queryResult} /> : null}
+        {queryResult ? (
+          <QueryResultTable key={queryResult.job_id} result={queryResult} />
+        ) : null}
       </section>
 
       <SectionTitle
@@ -526,7 +533,9 @@ function DryRunSummary({ result }: { result: SqlLabDryRunResult }) {
 }
 
 function QueryResultTable({ result }: { result: SqlLabQueryResult }) {
+  const [page, setPage] = useState(1);
   const columns = result.fields.map((field) => field.name);
+  const visibleRows = paginateItems(result.rows, page, DEFAULT_TABLE_PAGE_SIZE);
   return (
     <div className="border-t">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
@@ -540,7 +549,7 @@ function QueryResultTable({ result }: { result: SqlLabQueryResult }) {
           {result.truncated ? <Badge variant="outline">TRUNCATED</Badge> : null}
         </div>
       </div>
-      <div className="max-h-[520px] overflow-auto">
+      <div className="overflow-x-auto">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow>
@@ -555,7 +564,7 @@ function QueryResultTable({ result }: { result: SqlLabQueryResult }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {result.rows.map((row, index) => (
+            {visibleRows.map((row, index) => (
               <TableRow key={index}>
                 {columns.map((column) => (
                   <TableCell
@@ -571,6 +580,11 @@ function QueryResultTable({ result }: { result: SqlLabQueryResult }) {
           </TableBody>
         </Table>
       </div>
+      <TablePagination
+        page={page}
+        totalItems={result.rows.length}
+        onPageChange={setPage}
+      />
     </div>
   );
 }
