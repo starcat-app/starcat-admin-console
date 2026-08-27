@@ -158,6 +158,7 @@ export function AwesomePage() {
                 <TableHead>Source</TableHead>
                 <TableHead>Image</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Projects</TableHead>
                 <TableHead>Featured</TableHead>
                 <TableHead>Order</TableHead>
                 <TableHead>Last sync</TableHead>
@@ -191,6 +192,18 @@ export function AwesomePage() {
                     <StatusBadge ok={source.status !== "archived"}>
                       {source.status ?? "Active"}
                     </StatusBadge>
+                  </TableCell>
+                  <TableCell>
+                    {source.last_synced_at ? (
+                      <span className="whitespace-nowrap text-sm tabular-nums">
+                        <span className="font-mono font-medium text-foreground">
+                          {source.github_repo_count ?? 0}
+                        </span>{" "}
+                        <span className="text-muted-foreground">repos</span>
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {source.featured ? (

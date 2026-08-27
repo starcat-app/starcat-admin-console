@@ -166,6 +166,8 @@ export interface AwesomeSource {
   sort_order: number;
   revision?: number;
   status?: string;
+  /** 最近一次成功同步从 README 解析并核验通过的 GitHub 仓库数量。 */
+  github_repo_count?: number;
   last_synced_at?: string;
 }
 

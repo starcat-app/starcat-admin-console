@@ -175,6 +175,74 @@ test.beforeEach(async ({ page }) => {
       }),
     }),
   );
+  await page.route("**/api/awesome/sources?environment=*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: [
+          {
+            id: "awesome-mac",
+            repo_full_name: "jaywcjlove/awesome-mac",
+            display_name: "awesome-mac",
+            image_url: "",
+            summary_zh: "",
+            summary_en: "",
+            featured: false,
+            sort_order: 1,
+            status: "published",
+            github_repo_count: 289,
+            last_synced_at: "2026-08-27T00:00:00Z",
+          },
+          {
+            id: "awesome-empty",
+            repo_full_name: "starcat-app/awesome-empty",
+            display_name: "awesome-empty",
+            image_url: "",
+            summary_zh: "",
+            summary_en: "",
+            featured: false,
+            sort_order: 2,
+            status: "ready",
+            github_repo_count: 0,
+            last_synced_at: "2026-08-27T00:00:00Z",
+          },
+          {
+            id: "awesome-pending",
+            repo_full_name: "starcat-app/awesome-pending",
+            display_name: "awesome-pending",
+            image_url: "",
+            summary_zh: "",
+            summary_en: "",
+            featured: false,
+            sort_order: 3,
+            status: "draft",
+            github_repo_count: 0,
+          },
+        ],
+      }),
+    }),
+  );
+});
+
+test("shows parsed repository counts for Awesome sources", async ({ page }) => {
+  await page.goto("/awesome");
+
+  await expect(
+    page.getByRole("columnheader", { name: "Projects" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: /awesome-mac/ }).getByText("289 repos"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: /awesome-empty/ }).getByText("0 repos"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("row", { name: /awesome-pending/ })
+      .getByRole("cell")
+      .nth(3),
+  ).toHaveText("—");
 });
 
 test("switches environment and navigates the console shell", async ({
