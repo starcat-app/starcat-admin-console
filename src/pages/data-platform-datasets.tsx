@@ -15,14 +15,6 @@ import { PageHeader } from "@/components/app-shell";
 import { EmptyState } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Table,
   TableBody,
   TableCell,
@@ -38,15 +30,16 @@ import type {
   DataPlatformJob,
 } from "@/types";
 import {
+  CatalogRegistrationDialog,
+  type CatalogRegistrationAction,
+} from "./data-platform-catalog-registration";
+import {
   CatalogPageSkeleton,
   CatalogStateBadge,
   DataPlatformUnavailable,
   formatBytes,
   waitForDataPlatformJob,
 } from "./data-platform-shared";
-
-type RegistrationAction =
-  "lake.register-existing-watch-events" | "lake.register-existing-push-events";
 
 const registrationTargets = [
   {
@@ -63,7 +56,8 @@ const registrationTargets = [
 
 export function DataPlatformDatasetsPage() {
   const queryClient = useQueryClient();
-  const [pendingAction, setPendingAction] = useState<RegistrationAction>();
+  const [pendingAction, setPendingAction] =
+    useState<CatalogRegistrationAction>();
   const configQuery = useQuery({
     queryKey: ["data-platform", "config"],
     queryFn: () => api<DataPlatformConfig>("/api/data-platform/config"),
@@ -74,7 +68,7 @@ export function DataPlatformDatasetsPage() {
     enabled: configQuery.data?.available === true,
   });
   const registration = useMutation({
-    mutationFn: async (actionId: RegistrationAction) => {
+    mutationFn: async (actionId: CatalogRegistrationAction) => {
       const job = await api<DataPlatformJob>(
         `/api/data-platform/actions/${actionId}/jobs`,
         { method: "POST", body: "{}" },
@@ -266,55 +260,13 @@ export function DataPlatformDatasetsPage() {
         )}
       </section>
 
-      <RegistrationDialog
+      <CatalogRegistrationDialog
         actionId={pendingAction}
         running={registration.isPending}
         onClose={() => setPendingAction(undefined)}
         onConfirm={() => pendingAction && registration.mutate(pendingAction)}
       />
     </>
-  );
-}
-
-function RegistrationDialog({
-  actionId,
-  running,
-  onClose,
-  onConfirm,
-}: {
-  actionId?: RegistrationAction;
-  running: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <Dialog
-      open={Boolean(actionId)}
-      onOpenChange={(open) => !open && onClose()}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>确认登记既有 Raw Dataset</DialogTitle>
-          <DialogDescription>
-            将逐分区检查 Parquet footer、列结构、行数和 SHA-256。该动作只读，
-            不会移动、复制或删除 T0 上的文件。
-          </DialogDescription>
-        </DialogHeader>
-        <div className="rounded-lg border bg-muted/40 p-3 font-mono text-xs">
-          {actionId}
-        </div>
-        <DialogFooter showCloseButton>
-          <Button onClick={onConfirm} disabled={running}>
-            {running ? (
-              <LoaderCircle className="animate-spin" />
-            ) : (
-              <FileCheck2 />
-            )}
-            Confirm inspection
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 

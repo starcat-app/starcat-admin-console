@@ -142,6 +142,7 @@ GCP ADC。第一阶段仍不包含远程部署目标。
   外接磁盘保护和后台额度监控；
 - 在 SQL Lab 输入单条 `SELECT` / `WITH ... SELECT`，先 dry run，再以相同 SQL hash 和预算执行；
 - 展示最多 200 行、2 MiB 的临时结果，并在 PostgreSQL 中保留不含 SQL 正文的 Job 审计元数据。
+- 在 Partitions 页对照 Catalog 快照与实时下载进度，识别快照落后并通过固定只读动作重新登记。
 
 SQL Lab 首期只允许读取 `githubarchive` 公共数据集，单次查询预算上限为 10 GiB。SQL 只存在于
 浏览器内存、BFF 内存和执行期间的 `0600` 临时文件；结果仅在 BFF 内存保留 10 分钟，不写入

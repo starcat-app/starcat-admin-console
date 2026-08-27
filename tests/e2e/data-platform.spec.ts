@@ -35,6 +35,12 @@ test.beforeEach(async ({ page }) => {
         jobs: [],
       });
     }
+    if (path.endsWith("/bigquery/downloads")) {
+      return fulfill(route, [
+        download("WatchEvent", 1946),
+        download("PushEvent", 52),
+      ]);
+    }
     if (path.includes("/datasets/githubarchive_watch_event/partitions")) {
       return fulfill(route, {
         items: [partitionFixture],
@@ -43,8 +49,16 @@ test.beforeEach(async ({ page }) => {
         offset: 0,
       });
     }
+    if (path.includes("/datasets/githubarchive_push_event/partitions")) {
+      return fulfill(route, {
+        items: [pushPartitionFixture],
+        total: 1,
+        limit: 100,
+        offset: 0,
+      });
+    }
     if (path.endsWith("/datasets")) {
-      return fulfill(route, [datasetFixture]);
+      return fulfill(route, [datasetFixture, pushDatasetFixture]);
     }
     if (path.endsWith("/storage")) {
       return fulfill(route, [storageFixture]);
@@ -56,6 +70,15 @@ test.beforeEach(async ({ page }) => {
         stage: "queued",
         jobId: "job-register-watch",
         actionId: "lake.register-existing-watch-events",
+      });
+    }
+    if (path.includes("/actions/lake.register-existing-push-events/jobs")) {
+      return fulfill(route, {
+        ...jobBase,
+        state: "queued",
+        stage: "queued",
+        jobId: "job-register-push",
+        actionId: "lake.register-existing-push-events",
       });
     }
     if (path.endsWith("/bigquery/sql/dry-run")) {
@@ -108,6 +131,13 @@ test.beforeEach(async ({ page }) => {
           actionId: "lake.register-existing-watch-events",
         });
       }
+      if (path.includes("job-register-push")) {
+        return fulfill(route, {
+          ...jobBase,
+          jobId: "job-register-push",
+          actionId: "lake.register-existing-push-events",
+        });
+      }
       return fulfill(route, {
         ...jobBase,
         jobId: dryRun ? "job-dry-run" : "job-query",
@@ -147,6 +177,21 @@ test("registers and inspects the local Dataset Catalog without exposing paths", 
     page.getByRole("cell", { name: "2016-01-01", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(partitionFixture.logicalUri)).toBeVisible();
+  await expect(
+    page.getByText("Catalog snapshot is behind live download"),
+  ).toBeVisible();
+  await expect(
+    page.getByText("至少 1,945 个已下载分区尚未进入当前 Catalog 快照。", {
+      exact: false,
+    }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Refresh Catalog snapshot" }).click();
+  await expect(
+    page.getByRole("heading", { name: "确认登记既有 Raw Dataset" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Confirm inspection" }).click();
+  await expect(page.getByText("Catalog 快照已刷新")).toBeVisible();
 
   await page.getByRole("link", { name: "Storage" }).click();
   await expect(page.getByRole("heading", { name: "Storage" })).toBeVisible();
@@ -181,6 +226,29 @@ test("runs the guarded SQL Lab flow in the isolated local data platform", async 
   await expect(page.getByText("Query result")).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "ok" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "1" })).toBeVisible();
+});
+
+test("matches the PushEvent Catalog snapshot with its live downloader", async ({
+  page,
+}) => {
+  await page.goto("/data-platform/partitions");
+
+  await page.getByRole("combobox").first().click();
+  await page.getByRole("option", { name: "GH Archive PushEvent" }).click();
+
+  await expect(page.getByText("10 ready · watermark 2016-01-10")).toBeVisible();
+  await expect(
+    page.getByText("running · 52/3,890", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("至少 42 个已下载分区尚未进入当前 Catalog 快照。", {
+      exact: false,
+    }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Refresh Catalog snapshot" }).click();
+  await page.getByRole("button", { name: "Confirm inspection" }).click();
+  await expect(page.getByText("Catalog 快照已刷新")).toBeVisible();
 });
 
 function download(event: "WatchEvent" | "PushEvent", completed: number) {
@@ -233,6 +301,17 @@ const datasetFixture = {
   registeredAt: "2026-08-27T00:00:01.000Z",
 };
 
+const pushDatasetFixture = {
+  ...datasetFixture,
+  datasetId: "githubarchive_push_event",
+  displayName: "GH Archive PushEvent",
+  logicalUri: "lake://raw/bigquery/githubarchive_push_event/schema=v1",
+  readyPartitions: 10,
+  missingPartitions: 3_880,
+  totalPartitions: 3_890,
+  watermark: "2016-01-10",
+};
+
 const partitionFixture = {
   datasetId: "githubarchive_watch_event",
   schemaVersion: 1,
@@ -248,6 +327,13 @@ const partitionFixture = {
   fileSizeBytes: 100,
   estimatedBytes: 1_000,
   observedAt: "2026-08-27T00:00:00.000Z",
+};
+
+const pushPartitionFixture = {
+  ...partitionFixture,
+  datasetId: "githubarchive_push_event",
+  logicalUri:
+    "lake://raw/bigquery/githubarchive_push_event/schema=v1/event_date=2016-01-01",
 };
 
 const storageFixture = {

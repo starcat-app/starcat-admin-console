@@ -152,7 +152,8 @@ cannot submit executable paths, arbitrary commands, or filesystem locations.
 The data-platform navigation also includes:
 
 - **Datasets** — register existing WatchEvent / PushEvent Raw in place and inspect coverage;
-- **Partitions** — filter Catalog rows by Dataset, integrity state, and date range;
+- **Partitions** — compare the Catalog snapshot with live download progress, filter partition rows,
+  and refresh the snapshot through a fixed read-only registration action;
 - **Storage** — inspect the latest logical-volume capacity snapshot and registered Raw footprint.
 
 SQL Lab accepts one read-only `SELECT` or `WITH ... SELECT` against `githubarchive`, with a 10 GiB
