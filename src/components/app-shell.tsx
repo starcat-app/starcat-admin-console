@@ -65,6 +65,9 @@ const toolNavigation = [
 
 const dataPlatformNavigation = [
   { to: "/data-platform", label: "BigQuery operations", icon: HardDrive },
+  { to: "/data-platform/datasets", label: "Datasets", icon: Database },
+  { to: "/data-platform/partitions", label: "Partitions", icon: Activity },
+  { to: "/data-platform/storage", label: "Storage", icon: ServerCog },
 ] as const;
 
 export function AppShell() {
@@ -344,7 +347,9 @@ function NavGroup({
       <div className="space-y-1">
         {items.map((item) => {
           const active =
-            item.to === "/" ? path === "/" : path.startsWith(item.to);
+            item.to === "/" || item.to === "/data-platform"
+              ? path === item.to
+              : path.startsWith(item.to);
           const Icon = item.icon;
           return (
             <Link

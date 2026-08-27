@@ -219,6 +219,65 @@ export interface DataPlatformOverview {
   jobs: DataPlatformJob[];
 }
 
+export type DataPlatformDatasetState = "ready" | "partial" | "degraded";
+export type DataPlatformPartitionState = "ready" | "failed" | "missing";
+
+export interface DataPlatformDataset {
+  datasetId: string;
+  schemaVersion: number;
+  displayName: string;
+  source: string;
+  partitionKey: string;
+  logicalUri: string;
+  state: DataPlatformDatasetState;
+  startDate: string;
+  endDate: string;
+  readyPartitions: number;
+  failedPartitions: number;
+  missingPartitions: number;
+  totalPartitions: number;
+  totalRows: number;
+  totalBytes: number;
+  estimatedTotalBytes: number;
+  watermark?: string;
+  untrackedFileCount: number;
+  observedAt: string;
+  registeredAt: string;
+}
+
+export interface DataPlatformPartition {
+  datasetId: string;
+  schemaVersion: number;
+  partitionKey: string;
+  partitionValue: string;
+  sourcePartition: string;
+  state: DataPlatformPartitionState;
+  validationState: string;
+  logicalUri: string;
+  checksum?: string;
+  rowCount?: number;
+  fileSizeBytes?: number;
+  estimatedBytes?: number;
+  errorCode?: string;
+  observedAt: string;
+}
+
+export interface DataPlatformPartitionPage {
+  items: DataPlatformPartition[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface DataPlatformStorageSnapshot {
+  storageId: string;
+  logicalUri: string;
+  capacityBytes: number;
+  usedBytes: number;
+  availableBytes: number;
+  observedAt: string;
+}
+
 export interface BigQueryField {
   name: string;
   field_type: string;

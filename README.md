@@ -149,6 +149,12 @@ workspace path to a fixed Trainer inspection command, validates its result, and 
 only logical `lake://` / `storage://` URIs plus checksums and statistics in the catalog. Browser APIs
 cannot submit executable paths, arbitrary commands, or filesystem locations.
 
+The data-platform navigation also includes:
+
+- **Datasets** — register existing WatchEvent / PushEvent Raw in place and inspect coverage;
+- **Partitions** — filter Catalog rows by Dataset, integrity state, and date range;
+- **Storage** — inspect the latest logical-volume capacity snapshot and registered Raw footprint.
+
 SQL Lab accepts one read-only `SELECT` or `WITH ... SELECT` against `githubarchive`, with a 10 GiB
 per-query ceiling and a 200-row / 2 MiB result cap. SQL exists only in browser/BFF memory and a
 mode-`0600` temporary file. Query rows remain in BFF memory for ten minutes and are not stored in

@@ -35,6 +35,21 @@ const DataPlatformPage = lazy(() =>
     default: module.DataPlatformPage,
   })),
 );
+const DataPlatformDatasetsPage = lazy(() =>
+  import("@/pages/data-platform-datasets").then((module) => ({
+    default: module.DataPlatformDatasetsPage,
+  })),
+);
+const DataPlatformPartitionsPage = lazy(() =>
+  import("@/pages/data-platform-partitions").then((module) => ({
+    default: module.DataPlatformPartitionsPage,
+  })),
+);
+const DataPlatformStoragePage = lazy(() =>
+  import("@/pages/data-platform-storage").then((module) => ({
+    default: module.DataPlatformStoragePage,
+  })),
+);
 const ExplorerPage = lazy(() =>
   import("@/pages/explorer").then((module) => ({
     default: module.ExplorerPage,
@@ -94,6 +109,21 @@ const dataPlatformRoute = createRoute({
   path: "/data-platform",
   component: DataPlatformPage,
 });
+const dataPlatformDatasetsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/data-platform/datasets",
+  component: DataPlatformDatasetsPage,
+});
+const dataPlatformPartitionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/data-platform/partitions",
+  component: DataPlatformPartitionsPage,
+});
+const dataPlatformStorageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/data-platform/storage",
+  component: DataPlatformStoragePage,
+});
 const explorerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/explorer",
@@ -122,6 +152,9 @@ const routeTree = rootRoute.addChildren([
   awesomeRoute,
   activityRoute,
   dataPlatformRoute,
+  dataPlatformDatasetsRoute,
+  dataPlatformPartitionsRoute,
+  dataPlatformStorageRoute,
   explorerRoute,
   profilesRoute,
   agentRoute,
