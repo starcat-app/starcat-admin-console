@@ -51,6 +51,8 @@ Dataset Catalog，按 Dataset、Partition 和 Storage 维度运维。
 - 写入前交叉校验分区数量、状态计数、统计合计、日期范围、逻辑 URI 归属与唯一性，再以单个
   PostgreSQL 事务替换 Dataset 快照。
 - 新增 Datasets、Partitions、Storage 页面，支持覆盖率摘要、状态/日期筛选、分页和容量水位。
+- Partitions 同时显示 Catalog `observedAt` 与对应下载任务实时进度；实时进度领先时展示快照
+  落后量，并通过已有固定只读 Action 重新登记，不改变 `MISSING` 的数据语义。
 
 ## 数据流向
 
@@ -86,6 +88,7 @@ SQL 正文只经过浏览器内存、BFF 内存和临时文件；查询结果只
 | WatchEvent / PushEvent 既有 Raw 原地登记 | 完成 |
 | Dataset Inventory 整体一致性校验 | 完成 |
 | Datasets / Partitions / Storage 页面 | 完成 |
+| Catalog 快照与实时下载进度对照 | 完成 |
 | 使用文档、安全与隐私说明 | 完成 |
 
 ## 文档同步情况
@@ -101,7 +104,7 @@ SQL 正文只经过浏览器内存、BFF 内存和临时文件；查询结果只
 ### 自动化
 
 - Admin Console：38 个 Vitest 通过；Prettier、ESLint、TypeScript、生产构建通过。
-- Admin Console Playwright：8 / 8 通过。
+- Admin Console Playwright：9 / 9 通过，包含 WatchEvent / PushEvent 快照落后识别与刷新 Action。
 - Trainer：101 个 pytest 通过；Ruff、mypy 通过。
 
 ### 真实链路
@@ -128,6 +131,7 @@ SQL 正文只经过浏览器内存、BFF 内存和临时文件；查询结果只
 5. 第 5 轮：全量构建、E2E、PostgreSQL 计数、路径脱敏与真实 Action 复审，无新增问题。
 6. 第 6 轮：发现总体设计与本结果报告未同步当前逻辑 URI、两路登记和测试结果，已修复。
 7. 第 7 轮：全量代码、文档、测试、真实 Catalog 和三仓库状态终审，无遗留问题。
+8. 第 8 轮：复审 Catalog 快照与实时下载对照，补齐 PushEvent 专项 E2E 后无遗留问题。
 
 审查报告位于 [`审查报告`](./审查报告/) 目录。
 
@@ -159,6 +163,7 @@ SQL 正文只经过浏览器内存、BFF 内存和临时文件；查询结果只
 - `2b1bed6 fix(data-platform): 拒绝不一致的 Dataset 登记快照`
 - `ce49911 docs(review): 记录 Dataset Catalog 第二轮审查结果`
 - `0c52c39 docs(review): 同步 Dataset Catalog 审查与完成结果`
+- `a20315a improve(data-platform): 对照实时下载与 Catalog 快照`
 
 全部为本地提交，未 push。
 
@@ -171,6 +176,6 @@ SQL 正文只经过浏览器内存、BFF 内存和临时文件；查询结果只
 
 ## 最终完成状态
 
-**完成。** 代码、文档、测试和工程进度一致，七轮审查无未修复问题；控制台已能在本机完整
+**完成。** 代码、文档、测试和工程进度一致，八轮审查无未修复问题；控制台已能在本机完整
 操作 BigQuery 验证链路，并在不干扰现有下载任务、不复制 Raw 的前提下登记和查看
 Dataset、Partition 与 Storage 状态。
