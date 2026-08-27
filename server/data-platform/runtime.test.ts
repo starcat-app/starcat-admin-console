@@ -12,6 +12,8 @@ import { DataPlatformRuntime } from "./runtime.js";
 
 const config = {
   trainerRoot: "/private/trainer",
+  watchWorkspace: "/private/watch-workspace",
+  pushWorkspace: "/private/push-workspace",
   billingProject: "starcat-test",
   location: "US",
 };
@@ -66,6 +68,42 @@ describe("DataPlatformRuntime", () => {
       "/private/trainer/scripts/download-watch-events.sh",
     );
     expect(executor.requests.at(-1)?.args).toEqual(["start", "--json"]);
+  });
+
+  it("registers an existing Raw dataset without exposing its workspace", async () => {
+    const executor = new FakeExecutor();
+    const runtime = new DataPlatformRuntime(
+      new MemoryDataPlatformCatalog(),
+      config,
+      executor,
+    );
+
+    const queued = await runtime.createCatalogRegistrationJob(
+      "lake.register-existing-watch-events",
+    );
+    const completed = await waitForTerminalJob(runtime, queued.jobId);
+    const datasets = await runtime.datasets();
+    const partitions = await runtime.partitions({
+      datasetId: "githubarchive_watch_event",
+    });
+
+    expect(completed.state).toBe("succeeded");
+    expect(executor.requests.at(-1)?.args).toEqual([
+      "lake",
+      "inspect-watch-events",
+      "--workspace",
+      "/private/watch-workspace",
+    ]);
+    expect(datasets).toEqual([
+      expect.objectContaining({
+        datasetId: "githubarchive_watch_event",
+        logicalUri: "lake://raw/bigquery/githubarchive_watch_event/schema=v1",
+      }),
+    ]);
+    expect(partitions.total).toBe(1);
+    expect(JSON.stringify(runtime.result(queued.jobId))).not.toContain(
+      "/private/watch-workspace",
+    );
   });
 
   it("marks unfinished jobs interrupted after a runtime restart", async () => {
@@ -172,8 +210,61 @@ class FakeExecutor implements DataPlatformProcessExecutor {
         quota_error: null,
       });
     }
+    if (request.args[0] === "lake") return result(inventoryResult());
     return result({ schema_version: 1, ok: true, state: "running" });
   }
+}
+
+function inventoryResult() {
+  return {
+    schema_version: 1,
+    dataset: {
+      dataset_id: "githubarchive_watch_event",
+      schema_version: 1,
+      display_name: "GH Archive WatchEvent",
+      source: "bigquery",
+      partition_key: "event_date",
+      logical_uri: "lake://raw/bigquery/githubarchive_watch_event/schema=v1",
+      state: "partial",
+      start_date: "2016-01-01",
+      end_date: "2026-08-25",
+      ready_partitions: 1,
+      failed_partitions: 0,
+      missing_partitions: 1,
+      total_partitions: 2,
+      total_rows: 10,
+      total_bytes: 100,
+      estimated_total_bytes: 1_000,
+      watermark: "2016-01-01",
+      untracked_file_count: 0,
+      observed_at: "2026-08-27T00:00:00+00:00",
+    },
+    partitions: [
+      {
+        partition_key: "event_date",
+        partition_value: "2016-01-01",
+        source_partition: "20160101",
+        state: "ready",
+        validation_state: "valid",
+        logical_uri:
+          "lake://raw/bigquery/githubarchive_watch_event/schema=v1/event_date=2016-01-01",
+        checksum: "sha256:test",
+        row_count: 10,
+        file_size_bytes: 100,
+        estimated_bytes: 1_000,
+        error_code: null,
+      },
+    ],
+    storage: {
+      storage_id: "primary-data-volume",
+      logical_uri: "storage://primary-data-volume",
+      capacity_bytes: 1_000_000,
+      used_bytes: 100,
+      available_bytes: 999_900,
+      dataset_bytes: 100,
+      observed_at: "2026-08-27T00:00:00+00:00",
+    },
+  };
 }
 
 function result(body: Record<string, unknown>): ProcessResult {

@@ -3,7 +3,11 @@ import { Hono } from "hono";
 import { ZodError, z } from "zod";
 
 import type { DataPlatformRuntime } from "./data-platform/runtime.js";
-import { downloadActionIds, downloadEventIds } from "./data-platform/types.js";
+import {
+  catalogActionIds,
+  downloadActionIds,
+  downloadEventIds,
+} from "./data-platform/types.js";
 
 const sqlBaseSchema = z.object({
   sql: z
@@ -93,6 +97,65 @@ export function createDataPlatformRoutes(runtime?: DataPlatformRuntime) {
   app.post("/bigquery/sql/query", async (context) => {
     const input = sqlQuerySchema.parse(await context.req.json());
     const job = await requireRuntime(runtime).createSqlLabJob("query", input);
+    return context.json({ data: job }, 202);
+  });
+
+  app.get("/datasets", async (context) =>
+    context.json({ data: await requireRuntime(runtime).datasets() }),
+  );
+
+  app.get("/datasets/:datasetId", async (context) => {
+    const schemaVersion = z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(1)
+      .parse(context.req.query("schemaVersion"));
+    const dataset = await requireRuntime(runtime).dataset(
+      context.req.param("datasetId"),
+      schemaVersion,
+    );
+    return dataset
+      ? context.json({ data: dataset })
+      : context.json({ error: "dataset not found" }, 404);
+  });
+
+  app.get("/datasets/:datasetId/partitions", async (context) => {
+    const query = z
+      .object({
+        schemaVersion: z.coerce.number().int().positive().default(1),
+        state: z.enum(["ready", "failed", "missing"]).optional(),
+        dateFrom: z.iso.date().optional(),
+        dateTo: z.iso.date().optional(),
+        limit: z.coerce.number().int().min(1).max(500).default(100),
+        offset: z.coerce.number().int().nonnegative().default(0),
+      })
+      .parse({
+        schemaVersion: context.req.query("schemaVersion"),
+        state: context.req.query("state"),
+        dateFrom: context.req.query("dateFrom"),
+        dateTo: context.req.query("dateTo"),
+        limit: context.req.query("limit"),
+        offset: context.req.query("offset"),
+      });
+    return context.json({
+      data: await requireRuntime(runtime).partitions({
+        datasetId: context.req.param("datasetId"),
+        ...query,
+      }),
+    });
+  });
+
+  app.get("/storage", async (context) =>
+    context.json({ data: await requireRuntime(runtime).storage() }),
+  );
+
+  app.post("/actions/:actionId/jobs", async (context) => {
+    const actionId = z
+      .enum(catalogActionIds)
+      .parse(context.req.param("actionId"));
+    const job =
+      await requireRuntime(runtime).createCatalogRegistrationJob(actionId);
     return context.json({ data: job }, 202);
   });
 

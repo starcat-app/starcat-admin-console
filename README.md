@@ -87,7 +87,9 @@ The phase-one local console is runnable. It includes the React/shadcn workspace 
 Test / Production routing, typed service statistics and operations, Agent-assisted curated import,
 Awesome source management, profile and credential configuration, Fly app settings, and a local
 data platform backed by a PostgreSQL job catalog and fixed Trainer actions. Real ADC, live download
-status, dry run, zero-scan query, and browser validation passed on 2026-08-27.
+status, dry run, zero-scan query, and browser validation passed on 2026-08-27. The catalog also has
+versioned Dataset, Partition, Watermark, Storage, Artifact, and Deployment tables; existing
+WatchEvent / PushEvent Raw files are registered in place through fixed read-only Trainer actions.
 
 ![Starcat Admin Console overview](./docs/design/overview.png)
 
@@ -141,6 +143,11 @@ GCP ADC setup. No remote deployment target is part of phase one.
 switch. It shows monthly quota and download progress, invokes only the fixed WatchEvent / PushEvent
 `start`, `stop`, and `restart` actions, provides mandatory dry-run-gated SQL exploration, and records
 redacted job metadata in PostgreSQL.
+
+Existing BigQuery Raw data is never copied into PostgreSQL. The BFF passes an operator-only
+workspace path to a fixed Trainer inspection command, validates its result, and atomically stores
+only logical `lake://` / `storage://` URIs plus checksums and statistics in the catalog. Browser APIs
+cannot submit executable paths, arbitrary commands, or filesystem locations.
 
 SQL Lab accepts one read-only `SELECT` or `WITH ... SELECT` against `githubarchive`, with a 10 GiB
 per-query ceiling and a 200-row / 2 MiB result cap. SQL exists only in browser/BFF memory and a

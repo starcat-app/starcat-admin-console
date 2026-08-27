@@ -9,6 +9,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { z } from "zod";
+
 import type { DataPlatformCatalog } from "./catalog.js";
 import {
   type DataPlatformProcessExecutor,
@@ -16,6 +18,9 @@ import {
   dataPlatformEnvironment,
 } from "./process.js";
 import type {
+  CatalogActionId,
+  DataPlatformPartitionQuery,
+  DatasetInventory,
   DownloadActionId,
   DownloadEventId,
   DownloadStatus,
@@ -25,9 +30,61 @@ import type {
 const TRANSIENT_RESULT_TTL_MS = 10 * 60 * 1_000;
 const DOWNLOAD_STATUS_TTL_MS = 30 * 1_000;
 const MAXIMUM_PROCESS_OUTPUT_BYTES = 3 * (1 << 20);
+const MAXIMUM_INVENTORY_OUTPUT_BYTES = 16 * (1 << 20);
+
+const inventorySchema = z.object({
+  schema_version: z.literal(1),
+  dataset: z.object({
+    dataset_id: z.string().min(1),
+    schema_version: z.literal(1),
+    display_name: z.string().min(1),
+    source: z.string().min(1),
+    partition_key: z.string().min(1),
+    logical_uri: z.string().startsWith("lake://"),
+    state: z.enum(["ready", "partial", "degraded"]),
+    start_date: z.iso.date(),
+    end_date: z.iso.date(),
+    ready_partitions: z.number().int().nonnegative(),
+    failed_partitions: z.number().int().nonnegative(),
+    missing_partitions: z.number().int().nonnegative(),
+    total_partitions: z.number().int().positive(),
+    total_rows: z.number().int().nonnegative(),
+    total_bytes: z.number().int().nonnegative(),
+    estimated_total_bytes: z.number().int().nonnegative(),
+    watermark: z.iso.date().nullable(),
+    untracked_file_count: z.number().int().nonnegative(),
+    observed_at: z.iso.datetime({ offset: true }),
+  }),
+  partitions: z.array(
+    z.object({
+      partition_key: z.string().min(1),
+      partition_value: z.iso.date(),
+      source_partition: z.string().min(1),
+      state: z.enum(["ready", "failed", "missing"]),
+      validation_state: z.string().min(1),
+      logical_uri: z.string().startsWith("lake://"),
+      checksum: z.string().nullable(),
+      row_count: z.number().int().nonnegative().nullable(),
+      file_size_bytes: z.number().int().nonnegative().nullable(),
+      estimated_bytes: z.number().int().nonnegative().nullable(),
+      error_code: z.string().nullable(),
+    }),
+  ),
+  storage: z.object({
+    storage_id: z.string().min(1),
+    logical_uri: z.string().startsWith("storage://"),
+    capacity_bytes: z.number().int().positive(),
+    used_bytes: z.number().int().nonnegative(),
+    available_bytes: z.number().int().nonnegative(),
+    dataset_bytes: z.number().int().nonnegative(),
+    observed_at: z.iso.datetime({ offset: true }),
+  }),
+});
 
 export interface DataPlatformRuntimeConfig {
   trainerRoot: string;
+  watchWorkspace: string;
+  pushWorkspace: string;
   billingProject: string;
   location: string;
 }
@@ -140,9 +197,69 @@ export class DataPlatformRuntime {
     return job;
   }
 
+  async createCatalogRegistrationJob(actionId: CatalogActionId) {
+    await this.initialize();
+    const target = catalogRegistrationTarget(this.config, actionId);
+    const job = await this.catalog.createJob({
+      jobId: createJobId(),
+      actionId,
+      inputHash: hashJSON({ actionId, datasetId: target.datasetId }),
+    });
+    this.enqueue({
+      jobId: job.jobId,
+      actionId,
+      execute: async (signal) => {
+        const raw = await this.runJSON(
+          path.join(this.config.trainerRoot, ".venv/bin/starcat-recsys"),
+          ["lake", target.command, "--workspace", target.workspace],
+          10 * 60 * 1_000,
+          signal,
+          MAXIMUM_INVENTORY_OUTPUT_BYTES,
+        );
+        const inventory = inventoryFromTrainer(raw);
+        if (inventory.dataset.datasetId !== target.datasetId) {
+          throw new ActionError("UNEXPECTED_DATASET_ID");
+        }
+        await this.catalog.replaceDatasetInventory(inventory);
+        // 任务结果只返回摘要，分区明细已经原子落入 Catalog，避免 BFF 长时间保留大对象。
+        return {
+          schema_version: 1,
+          dataset_id: inventory.dataset.datasetId,
+          schemaVersion: inventory.dataset.schemaVersion,
+          state: inventory.dataset.state,
+          ready_partitions: inventory.dataset.readyPartitions,
+          failed_partitions: inventory.dataset.failedPartitions,
+          missing_partitions: inventory.dataset.missingPartitions,
+          registered_at: inventory.dataset.registeredAt,
+        };
+      },
+    });
+    return job;
+  }
+
   async jobs(limit = 50) {
     await this.initialize();
     return this.catalog.listJobs(limit);
+  }
+
+  async datasets() {
+    await this.initialize();
+    return this.catalog.listDatasets();
+  }
+
+  async dataset(datasetId: string, schemaVersion = 1) {
+    await this.initialize();
+    return this.catalog.getDataset(datasetId, schemaVersion);
+  }
+
+  async partitions(query: DataPlatformPartitionQuery) {
+    await this.initialize();
+    return this.catalog.listPartitions(query);
+  }
+
+  async storage() {
+    await this.initialize();
+    return this.catalog.listStorageSnapshots();
   }
 
   async job(jobId: string) {
@@ -316,6 +433,7 @@ export class DataPlatformRuntime {
     args: string[],
     timeoutMs: number,
     signal?: AbortSignal,
+    maximumOutputBytes = MAXIMUM_PROCESS_OUTPUT_BYTES,
   ): Promise<Record<string, unknown>> {
     const result = await this.executor.run({
       executable,
@@ -323,7 +441,7 @@ export class DataPlatformRuntime {
       cwd: this.config.trainerRoot,
       environment: dataPlatformEnvironment(this.config.billingProject),
       timeoutMs,
-      maximumOutputBytes: MAXIMUM_PROCESS_OUTPUT_BYTES,
+      maximumOutputBytes,
       signal,
     });
     if (result.exitCode !== 0) {
@@ -354,13 +472,103 @@ export function dataPlatformConfigFromEnvironment(): DataPlatformRuntimeConfig {
   );
   const billingProject = process.env.STARCAT_BQ_BILLING_PROJECT?.trim() ?? "";
   const location = process.env.STARCAT_BQ_LOCATION?.trim() || "US";
+  const watchWorkspace = path.resolve(
+    process.env.STARCAT_WATCH_WORKSPACE?.trim() ||
+      "/Volumes/T0/Starcat/bigquery/watch-events-2016-2026",
+  );
+  const pushWorkspace = path.resolve(
+    process.env.STARCAT_PUSH_WORKSPACE?.trim() ||
+      "/Volumes/T0/Starcat/bigquery/push-events-2016-2026",
+  );
   if (!/^[A-Za-z0-9-]+$/.test(billingProject)) {
     throw new Error("STARCAT_BQ_BILLING_PROJECT 未配置或格式不合法");
   }
   if (!/^[A-Za-z0-9-]+$/.test(location)) {
     throw new Error("STARCAT_BQ_LOCATION 格式不合法");
   }
-  return { trainerRoot, billingProject, location };
+  return {
+    trainerRoot,
+    watchWorkspace,
+    pushWorkspace,
+    billingProject,
+    location,
+  };
+}
+
+function catalogRegistrationTarget(
+  config: DataPlatformRuntimeConfig,
+  actionId: CatalogActionId,
+) {
+  return actionId === "lake.register-existing-watch-events"
+    ? {
+        command: "inspect-watch-events",
+        workspace: config.watchWorkspace,
+        datasetId: "githubarchive_watch_event",
+      }
+    : {
+        command: "inspect-push-events",
+        workspace: config.pushWorkspace,
+        datasetId: "githubarchive_push_event",
+      };
+}
+
+function inventoryFromTrainer(raw: Record<string, unknown>): DatasetInventory {
+  let parsed: z.infer<typeof inventorySchema>;
+  try {
+    parsed = inventorySchema.parse(raw);
+  } catch {
+    throw new ActionError("INVALID_DATASET_INVENTORY");
+  }
+  const registeredAt = new Date().toISOString();
+  const dataset = parsed.dataset;
+  return {
+    dataset: {
+      datasetId: dataset.dataset_id,
+      schemaVersion: dataset.schema_version,
+      displayName: dataset.display_name,
+      source: dataset.source,
+      partitionKey: dataset.partition_key,
+      logicalUri: dataset.logical_uri,
+      state: dataset.state,
+      startDate: dataset.start_date,
+      endDate: dataset.end_date,
+      readyPartitions: dataset.ready_partitions,
+      failedPartitions: dataset.failed_partitions,
+      missingPartitions: dataset.missing_partitions,
+      totalPartitions: dataset.total_partitions,
+      totalRows: dataset.total_rows,
+      totalBytes: dataset.total_bytes,
+      estimatedTotalBytes: dataset.estimated_total_bytes,
+      watermark: dataset.watermark ?? undefined,
+      untrackedFileCount: dataset.untracked_file_count,
+      observedAt: dataset.observed_at,
+      registeredAt,
+    },
+    partitions: parsed.partitions.map((partition) => ({
+      datasetId: dataset.dataset_id,
+      schemaVersion: dataset.schema_version,
+      partitionKey: partition.partition_key,
+      partitionValue: partition.partition_value,
+      sourcePartition: partition.source_partition,
+      state: partition.state,
+      validationState: partition.validation_state,
+      logicalUri: partition.logical_uri,
+      checksum: partition.checksum ?? undefined,
+      rowCount: partition.row_count ?? undefined,
+      fileSizeBytes: partition.file_size_bytes ?? undefined,
+      estimatedBytes: partition.estimated_bytes ?? undefined,
+      errorCode: partition.error_code ?? undefined,
+      observedAt: dataset.observed_at,
+    })),
+    storage: {
+      storageId: parsed.storage.storage_id,
+      logicalUri: parsed.storage.logical_uri,
+      capacityBytes: parsed.storage.capacity_bytes,
+      usedBytes: parsed.storage.used_bytes,
+      availableBytes: parsed.storage.available_bytes,
+      observedAt: parsed.storage.observed_at,
+    },
+  };
 }
 
 function downloadScript(root: string, event: DownloadEventId) {

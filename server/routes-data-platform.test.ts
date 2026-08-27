@@ -25,6 +25,8 @@ describe("data platform routes", () => {
       new MemoryDataPlatformCatalog(),
       {
         trainerRoot: "/private/trainer",
+        watchWorkspace: "/private/watch-workspace",
+        pushWorkspace: "/private/push-workspace",
         billingProject: "starcat-test",
         location: "US",
       },
