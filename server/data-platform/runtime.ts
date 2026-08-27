@@ -519,6 +519,7 @@ function inventoryFromTrainer(raw: Record<string, unknown>): DatasetInventory {
   } catch {
     throw new ActionError("INVALID_DATASET_INVENTORY");
   }
+  assertInventoryConsistency(parsed);
   const registeredAt = new Date().toISOString();
   const dataset = parsed.dataset;
   return {
@@ -569,6 +570,44 @@ function inventoryFromTrainer(raw: Record<string, unknown>): DatasetInventory {
       observedAt: parsed.storage.observed_at,
     },
   };
+}
+
+function assertInventoryConsistency(parsed: z.infer<typeof inventorySchema>) {
+  const { dataset, partitions, storage } = parsed;
+  const states = { ready: 0, failed: 0, missing: 0 };
+  const partitionValues = new Set<string>();
+  let totalRows = 0;
+  let totalBytes = 0;
+  let estimatedTotalBytes = 0;
+  for (const partition of partitions) {
+    states[partition.state] += 1;
+    totalRows += partition.row_count ?? 0;
+    totalBytes += partition.file_size_bytes ?? 0;
+    estimatedTotalBytes += partition.estimated_bytes ?? 0;
+    const logicalPrefix = `${dataset.logical_uri}/${dataset.partition_key}=`;
+    if (
+      partition.partition_key !== dataset.partition_key ||
+      partition.partition_value < dataset.start_date ||
+      partition.partition_value > dataset.end_date ||
+      !partition.logical_uri.startsWith(logicalPrefix) ||
+      partitionValues.has(partition.partition_value)
+    ) {
+      throw new ActionError("INVALID_DATASET_INVENTORY");
+    }
+    partitionValues.add(partition.partition_value);
+  }
+  if (
+    partitions.length !== dataset.total_partitions ||
+    states.ready !== dataset.ready_partitions ||
+    states.failed !== dataset.failed_partitions ||
+    states.missing !== dataset.missing_partitions ||
+    totalRows !== dataset.total_rows ||
+    totalBytes !== dataset.total_bytes ||
+    estimatedTotalBytes !== dataset.estimated_total_bytes ||
+    storage.dataset_bytes !== dataset.total_bytes
+  ) {
+    throw new ActionError("INVALID_DATASET_INVENTORY");
+  }
 }
 
 function downloadScript(root: string, event: DownloadEventId) {

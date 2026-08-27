@@ -106,6 +106,23 @@ describe("DataPlatformRuntime", () => {
     );
   });
 
+  it("rejects an internally inconsistent Trainer inventory", async () => {
+    const runtime = new DataPlatformRuntime(
+      new MemoryDataPlatformCatalog(),
+      config,
+      new InvalidInventoryExecutor(),
+    );
+
+    const queued = await runtime.createCatalogRegistrationJob(
+      "lake.register-existing-watch-events",
+    );
+    const completed = await waitForTerminalJob(runtime, queued.jobId);
+
+    expect(completed.state).toBe("failed");
+    expect(completed.errorCode).toBe("INVALID_DATASET_INVENTORY");
+    expect(await runtime.datasets()).toEqual([]);
+  });
+
   it("marks unfinished jobs interrupted after a runtime restart", async () => {
     const catalog = new MemoryDataPlatformCatalog();
     const job = await catalog.createJob({
@@ -215,6 +232,17 @@ class FakeExecutor implements DataPlatformProcessExecutor {
   }
 }
 
+class InvalidInventoryExecutor extends FakeExecutor {
+  override async run(request: ProcessRequest): Promise<ProcessResult> {
+    if (request.args[0] !== "lake") return super.run(request);
+    const inventory = inventoryResult();
+    return result({
+      ...inventory,
+      dataset: { ...inventory.dataset, total_partitions: 2 },
+    });
+  }
+}
+
 function inventoryResult() {
   return {
     schema_version: 1,
@@ -230,8 +258,8 @@ function inventoryResult() {
       end_date: "2026-08-25",
       ready_partitions: 1,
       failed_partitions: 0,
-      missing_partitions: 1,
-      total_partitions: 2,
+      missing_partitions: 0,
+      total_partitions: 1,
       total_rows: 10,
       total_bytes: 100,
       estimated_total_bytes: 1_000,
