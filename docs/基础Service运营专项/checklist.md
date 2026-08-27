@@ -37,4 +37,6 @@
 - [x] 本地多服务链路验证通过
 - [x] 多轮审查报告已生成并修复
 - [x] 最终结果报告已生成
-- [x] 所有提交为本地中文 commit，未 push
+- [x] API Kit、六服务与 Admin Console 已合并到 `main` 并创建正式 tag
+- [x] 六服务独立 Fly Deploy workflow 已移除
+- [x] 生产仅部署 `starcat-api` 聚合服务并通过全链路验收
