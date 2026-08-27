@@ -88,6 +88,36 @@ describe("service operations routes", () => {
     expect(await response.text()).not.toContain("test-secret");
     expect(fetchMock).toHaveBeenCalledOnce();
   });
+
+  it("deduplicates statistics that share the same upstream path", async () => {
+    const store = await configuredStore();
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.pathname === "/healthz") return new Response("ok");
+      if (url.pathname === "/api/v1/ping")
+        return jsonResponse({ schema_version: 1, data: { ok: true } });
+      return jsonResponse({
+        schema_version: 1,
+        data: {
+          total_shares: 4,
+          active_shares: 3,
+          total_visits: 8,
+          created_7d: 2,
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await createServicesRoutes(store).request(
+      "/sharing?environment=test",
+    );
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { stats: Array<{ value: number }> };
+    };
+    expect(payload.data.stats.map((stat) => stat.value)).toEqual([4, 3, 8, 2]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });
 
 async function configuredStore() {

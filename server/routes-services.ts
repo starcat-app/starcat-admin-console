@@ -118,6 +118,9 @@ async function loadService(
         error: "API key not configured",
       };
 
+  // 多个统计卡片通常读取同一个聚合端点。单次页面刷新复用同一 Promise，
+  // 避免重复请求污染调用量统计，也降低六服务的 SQLite 聚合压力。
+  const statRequests = new Map<string, ReturnType<typeof attemptRequest>>();
   const stats = await Promise.all(
     descriptor.stats.map(async (stat) => {
       if (!secretState[stat.auth].configured) {
@@ -129,14 +132,20 @@ async function loadService(
           error: `${stat.auth} not configured`,
         };
       }
-      const result = await attemptRequest(() =>
-        requestUpstream(store, {
-          environment,
-          service,
-          path: stat.path,
-          auth: stat.auth,
-        }),
-      );
+      const requestKey = `${stat.auth}\u0000${stat.path}`;
+      let request = statRequests.get(requestKey);
+      if (!request) {
+        request = attemptRequest(() =>
+          requestUpstream(store, {
+            environment,
+            service,
+            path: stat.path,
+            auth: stat.auth,
+          }),
+        );
+        statRequests.set(requestKey, request);
+      }
+      const result = await request;
       return {
         id: stat.id,
         label: stat.label,
