@@ -164,10 +164,14 @@ export interface AwesomeSource {
   summary_en: string;
   featured: boolean;
   sort_order: number;
+  /** 决定 README 条目允许发布为 GitHub 仓库、外站资源或仓库内文件。 */
+  parser_profile: "generic" | "external_catalog" | "repository_resources";
   revision?: number;
   status?: string;
   /** 最近一次成功同步从 README 解析并核验通过的 GitHub 仓库数量。 */
   github_repo_count?: number;
+  external_entry_count?: number;
+  resource_entry_count?: number;
   last_synced_at?: string;
 }
 

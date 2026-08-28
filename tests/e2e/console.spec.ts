@@ -192,6 +192,8 @@ test.beforeEach(async ({ page }) => {
             sort_order: 1,
             status: "published",
             github_repo_count: 289,
+            external_entry_count: 0,
+            resource_entry_count: 0,
             last_synced_at: "2026-08-27T00:00:00Z",
           },
           {
@@ -205,6 +207,8 @@ test.beforeEach(async ({ page }) => {
             sort_order: 2,
             status: "ready",
             github_repo_count: 0,
+            external_entry_count: 820,
+            resource_entry_count: 0,
             last_synced_at: "2026-08-27T00:00:00Z",
           },
           {
@@ -264,17 +268,20 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test("shows parsed repository counts for Awesome sources", async ({ page }) => {
+test("shows parsed entry counts for Awesome sources", async ({ page }) => {
   await page.goto("/awesome");
 
   await expect(
     page.getByRole("columnheader", { name: "Projects" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("row", { name: /awesome-mac/ }).getByText("289 repos"),
+    page.getByRole("row", { name: /awesome-mac/ }).getByText("289 entries"),
   ).toBeVisible();
   await expect(
-    page.getByRole("row", { name: /awesome-empty/ }).getByText("0 repos"),
+    page.getByRole("row", { name: /awesome-empty/ }).getByText("820 entries"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: /awesome-empty/ }).getByText("820 external"),
   ).toBeVisible();
   await expect(
     page

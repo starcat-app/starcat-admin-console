@@ -42,6 +42,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -64,6 +71,7 @@ const emptySource: AwesomeSource = {
   summary_en: "",
   featured: false,
   sort_order: 0,
+  parser_profile: "generic",
 };
 
 const bulkSyncConcurrency = 3;
@@ -291,12 +299,21 @@ export function AwesomePage() {
                   </TableCell>
                   <TableCell>
                     {source.last_synced_at ? (
-                      <span className="whitespace-nowrap text-sm tabular-nums">
-                        <span className="font-mono font-medium text-foreground">
-                          {source.github_repo_count ?? 0}
-                        </span>{" "}
-                        <span className="text-muted-foreground">repos</span>
-                      </span>
+                      <div className="min-w-44 text-sm tabular-nums">
+                        <div className="font-mono font-medium text-foreground">
+                          {(source.github_repo_count ?? 0) +
+                            (source.external_entry_count ?? 0) +
+                            (source.resource_entry_count ?? 0)}{" "}
+                          entries
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                          <span>{source.github_repo_count ?? 0} repos</span>
+                          <span>
+                            {source.external_entry_count ?? 0} external
+                          </span>
+                          <span>{source.resource_entry_count ?? 0} files</span>
+                        </div>
+                      </div>
                     ) : (
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
@@ -458,6 +475,33 @@ function SourceEditor({
               value={form.display_name}
               onChange={(e) => update("display_name", e.target.value)}
             />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="awesome-parser-profile">
+              Parser profile
+            </FieldLabel>
+            <Select
+              value={form.parser_profile}
+              onValueChange={(value) =>
+                update(
+                  "parser_profile",
+                  value as AwesomeSource["parser_profile"],
+                )
+              }
+            >
+              <SelectTrigger id="awesome-parser-profile" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="generic">GitHub repositories</SelectItem>
+                <SelectItem value="external_catalog">
+                  GitHub + external resources
+                </SelectItem>
+                <SelectItem value="repository_resources">
+                  GitHub + repository files
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
           <Field>
             <FieldLabel htmlFor="awesome-image">Image URL</FieldLabel>

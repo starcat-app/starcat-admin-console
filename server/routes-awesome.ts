@@ -15,6 +15,11 @@ const awesomeSourceSchema = z.object({
   summary_en: z.string(),
   featured: z.boolean(),
   sort_order: z.number().int(),
+  parser_profile: z.enum([
+    "generic",
+    "external_catalog",
+    "repository_resources",
+  ]),
   revision: z.number().int().optional(),
 });
 
