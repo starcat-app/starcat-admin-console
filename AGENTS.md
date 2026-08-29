@@ -2,6 +2,14 @@
 
 本文件约束 `starcat-admin-console` 内的 AI 协作与实现边界。
 
+## 规则来源与仓库边界
+
+- 根目录 `AGENTS.md` 是本仓库 AI 协作规则的唯一维护源。
+- 本目录是独立 Git 仓库，拥有自己的分支、remote、提交和发布边界；不得把改动并入
+  外层 Starcat 主仓库，也不得顺带修改相邻 `supports/*` 项目。
+- 开工前在本仓库核对 `git status --short` 与当前分支，保留用户已有改动；未经明确要求
+  不 commit、push、切分支或修改 remote。
+
 ## 工作方式
 
 - 修改代码前先给出最小实现方案，等待 dong4j 明确确认。
@@ -30,5 +38,18 @@
 
 - 前端使用 React、TypeScript、Vite 与 shadcn/ui；优先使用 shadcn 组件和语义化主题 token。
 - 本地 BFF 采用 Node.js 运行时，所有外部 API 访问通过类型化 adapter 收口。
+- `src/` 是浏览器 UI，`server/` 是只绑定本机的 BFF 与受控运维 adapter，`tests/` 放
+  Playwright 和前端测试，`docs/` 记录已确认的产品、数据平台与安全设计。
 - 单元测试覆盖环境路由、密钥脱敏、权限边界与数据转换；Playwright 覆盖关键运营流程。
+- 常规质量门禁运行 `pnpm check`；需要验收完整运营流程时再运行
+  `pnpm exec playwright install chromium && pnpm test:e2e`。
 - 实现完成后分别报告构建、自动化测试和人工浏览器验收结果，不能互相替代。
+
+## 外部副作用禁令
+
+- 未经 dong4j 针对本次操作明确授权，不得触发生产或测试服务写入、Fly secrets/部署、
+  Awesome 发布、Agent 导入发布、BigQuery 查询或下载任务，以及数据平台 Job。
+- 不得擅自运行 `pnpm data-platform:up` / `pnpm data-platform:down` 改变本机容器状态；
+  `pnpm dev`、`pnpm start` 等长驻进程也只在任务确有需要时启动，并明确说明影响。
+- 只读页面验收不能替代写操作授权；即使 UI 已提供确认框，Agent 仍须在执行前获得本次
+  明确授权。
